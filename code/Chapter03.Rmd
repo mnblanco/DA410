@@ -1,0 +1,186 @@
+---
+title: "Untitled"
+author: "Marjorie Blanco"
+date: "1/11/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+library(ggplot2)
+library(dplyr)
+
+```
+
+## Exaple 3.2.1
+
+Find sample covarince (Sxy) for height and weight
+
+Y =
+```{r}
+height <- read_table("Software-Files/T3_1_HEIGHTWT.CSV", col_names = c("Person", "x", "y"))
+kable(height)
+```
+
+```{r}
+height2 <- height %>% gather(Variable, Measurement, -Person)
+
+
+ggplot(height2,  aes(Person, Measurement, col = Variable)) +
+  geom_point()
+
+height <- select(height, -Person)
+
+```
+
+
+
+```{r}
+x_bar <- sum(height$x) / nrow(height)
+y_bar <- sum(height$y) / nrow(height)
+x_bar
+y_bar
+
+
+y <- data.frame(vec_mean = colMeans(height))
+kable(y)
+
+height$xy <- height$x * height$y
+
+xy <-  sum(height$xy)
+xy
+
+# sample covariance
+Sxy  <- (xy - (nrow(height) * x_bar * y_bar)) / (nrow(height) - 1)
+Sxy
+```
+
+## Example 3.2.2
+
+Find correlation for height and weight
+
+```{r}
+height$x2 <- height$x^2
+S2x <- (sum(height$x2) - nrow(height) * x_bar^2) / (nrow(height) - 1)
+S2x
+
+Sx <- sqrt(S2x)
+Sx
+
+height$y2 <- height$y^2
+
+S2y <- (sum(height$y2) - nrow(height) * y_bar^2) / (nrow(height) - 1)
+S2y
+
+Sy <- sqrt(S2y)
+Sy
+
+rxy <- Sxy / (Sx * Sy)
+rxy
+
+cor(height$x, height$y)
+```
+
+## Example 3.6
+
+Find correlation
+
+Y =
+```{r, echo=FALSE}
+calcium <- read_table("Software-Files/T3_4_CALCIUM.CSV", col_names = c("LocationNumber", "y1", "y2", "y3"))
+calcium <- select(calcium, -LocationNumber)
+kable(calcium)
+```
+
+```{r}
+# sample mean vector
+y1_bar <- sum(calcium$y1) / nrow(height)
+y2_bar <- sum(calcium$y2) / nrow(height)
+y3_bar <- sum(calcium$y3) / nrow(height)
+y1_bar
+y2_bar
+y3_bar
+
+y_bar <- data.frame(vec_mean = colMeans(calcium))
+kable(y_bar)
+
+```
+
+```{r, e}
+# probe <- read_table("Software-Files/T3_6_PROBE.CSV", col_names = c("SubjectNumber", "y1", "y2", "y3", "y4", "y5"))
+# 
+# 
+# probe <- probe %>% select(-SubjectNumber)
+# 
+# 
+# probe2 <- sweep(probe, 2, c(3, -2, 4, -1, 1), "*")
+# z <- data.frame(mean = rowSums(probe2))
+# rownames(z) <- paste(rep(c("z"), nrow(probe)), rep(1:nrow(probe)), sep="")
+# kable(z)
+# 
+# z <- data.frame(mean = rowSums(calcium))
+# 
+# y <- colMeans(probe)
+# y
+# 
+# S <- cov(probe)
+# S
+# 
+# a <- matrix( c(3, -2, 4, -1, 1))
+# 
+# z <- t(a) %*% as.matrix(y)
+# z
+# 
+# s2z<- t(a) %*% as.matrix(S)   %*% a
+# s2z
+```
+
+```{r}
+diabetes <- read_table("Software-Files/T3_5_DIABETES.CSV", col_names = c("Patient Number", "y1", "y2", "x1", "x2", "x3"))
+kable(diabetes)
+diabetes <- select(diabetes, -"Patient Number")
+```
+
+```{r}
+cov(diabetes)
+```
+
+
+```{r}
+y <- data.frame(mean = colMeans(diabetes))
+```
+
+$\overline{y}$  =
+```{r, echo=FALSE}
+rownames(y) <- colnames(diabetes)
+kable(y)
+```
+
+```{r}
+p <- diabetes[,1:2]
+q <- diabetes[,3:5]
+
+
+Syy <- matrix(c(cov(diabetes$y1, diabetes$y1), cov(diabetes$y1, diabetes$y2), cov(diabetes$y2, diabetes$y1), cov(diabetes$y2, diabetes$y2)), nrow = 2, byrow = TRUE)
+
+Sxx <- matrix(c(cov(diabetes$x1, diabetes$x1), cov(diabetes$x1, diabetes$x2), cov(diabetes$x2, diabetes$x1), cov(diabetes$x2, diabetes$x2)), nrow = 2, byrow = TRUE)
+
+
+Syy <- cov(as.matrix(p) %*% t(as.matrix(p)))
+Syy
+
+Syy <- as.matrix(p) %*% t(as.matrix(p))
+
+
+p$y12 <- p$y1^2
+p$y1y2 <- p$y1*p$y2
+p$y22 <- p$y2^2
+
+
+p <- y[1:2,]
+q <- y[3:5,]
+
+Syy <- cov(as.matrix(p) %*% t(as.matrix(p)))
+Syy
+```
+

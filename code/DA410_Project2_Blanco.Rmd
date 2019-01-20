@@ -1,0 +1,297 @@
+---
+title: 'Project 2: Multiple Analysis of Variance'
+author: "Marjorie Blanco"
+subtitle: DA 410
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+library(readr)
+library(Hotelling)
+library(MANOVA.RM)
+library(dplyr)
+library(kableExtra)
+library(gplots)
+library(mvnormtest)
+library(HH)
+library(heplots)
+```
+
+## Part 1: 
+
+Download `testscoredata.txt` and read it in R or SAS.
+
+Use Hotelling’s T^2 test to test for a difference in the mean score vector of the boys and the mean vector of the girls. Make sure you include clear command lines and relevant output/results with hypotheses, test result(s) and conclusion(s)/interpretation(s).
+
+```{r}
+testscoredata <- data.frame(read_table2("MV/testscoredata.txt"))
+boys <- testscoredata %>% filter(sex == "boy") %>% dplyr::select(math, reading)
+girls <- testscoredata %>% filter(sex == "girl") %>% dplyr::select(math, reading)
+
+fit <- hotelling.stat(boys, girls)
+fit
+
+test.group <- split(testscoredata[,2:3], testscoredata$sex)
+test.means <- sapply(test.group, function(x) {
+  apply(x, 2, mean)
+}, simplify = 'data.frame')
+kable(test.means) %>%
+  kable_styling(bootstrap_options = "striped")
+
+
+library(ICSNP)
+HotellingsT2(boys,girls, test="f")
+HotellingsT2(boys,girls, test="chi")
+
+summary(manova(cbind(testscoredata$math, testscoredata$reading) ~ testscoredata$sex), test="Hotelling")
+
+
+# bodymeasgrps <- data.frame(read_table2("MV/bodymeasgrps.csv", skip = 17))
+# 
+# # number of observations for the 'young' group and the 'old' group:
+# l1 <- length(bodymeasgrps$agegp == "young")
+# l2 <- length(bodymeasgrps$agegp == "old")
+# 
+# # Splitting the data matrix (while removing the 9th column, agegp)
+# # into two subsets, one for old and another for young:
+# x1 <- bodymeasgrps %>% filter(agegp == "young") %>% dplyr::select(-agegp)
+# x2 <- bodymeasgrps %>% filter(agegp == "old") %>% dplyr::select(-agegp)
+# my.q <- ncol(x1)
+# 
+# # Sample mean vectors for the 'young' group and the 'old' group:
+# m1 <-apply(x1, 2, mean)
+# m2 <-apply(x2, 2, mean)
+# 
+# # "pooled" sample covariance matrix:
+# S123 <-((l1-1)*var(x1)+(l2-1)*var(x2))/(l1+l2-2)
+# c <- cov(bodymeasgrps %>% dplyr::select(-agegp))
+# c <- cov(x1 , x2)
+# 
+# # Hotelling T^2, the F-statistic, and the P-value:
+# T2 <-((l1*l2)/(l1+l2))* (t(m1-m2) %*% solve(S123) %*% (m1-m2) ) 
+# 
+# Fstat <-((l1+l2-my.q-1)*T2)/((l1+l2-2)*my.q)
+# pvalue <-1-pf(Fstat, my.q, l1+l2-my.q-1)
+# 
+# print(paste("Hotelling T^2 =", round(T2,4), "F=", round(Fstat,4), "P-value =", round(pvalue,4) ))
+# 
+# summary(manova(cbind(bodymeasgrps$weight, bodymeasgrps$height, bodymeasgrps$neck, bodymeasgrps$chest,  bodymeasgrps$hip, bodymeasgrps$thigh, bodymeasgrps$biceps, bodymeasgrps$wrist) ~ bodymeasgrps$agegp),test="Hotelling")
+# 
+# 
+# fit <- hotelling.stat(x1, x2)
+# fit
+```
+
+Comparing the value of the test statistic $T^2$ with critical value $T^2_{2,59}$ = 15.373 (TBD), we are led to reject the hypothesis of equal mean vectors for the gender groups.
+
+```{r}
+hovPlot(testscoredata$math~testscoredata$sex)
+plotmeans(math ~ sex, data = testscoredata,
+          xlab = "Gender", ylab = "Math",
+          main="Mean Plot with 95% CI") 
+
+
+hovPlot(testscoredata$reading~testscoredata$sex)
+plotmeans(reading ~ sex, data = testscoredata,
+          xlab = "Gender", ylab = "Reading",
+          main="Mean Plot with 95% CI") 
+```
+
+## Part 2: 
+
+Suppose we have gathered the following data on female athletes in three sports. The measurements we have made are the athletes' heights and vertical jumps, both in inches. The data are listed as (height, jump) as follows:
+
+Basketball Players:(66, 27), (65, 29), (68, 26), (64, 29), (67, 29)
+
+Track Athletes:(63, 23), (61, 26), (62, 23), (60, 26)
+
+Softball Players:(62, 23), (65, 21), (63, 21), (62, 23), (63.5, 22), (66, 21.5)
+
+The following R code should read in the data as 3 vectors:
+
+```{r echo=FALSE}
+sport <- c('B','B','B','B','B','T','T','T','T','S','S','S','S','S','S') 
+height <- c(66,65,68,64,67,63,61,62,60,62,65,63,62,63.5,66) 
+jump <- c(27,29,26,29,29,23,26,23,26,23,21,21,23,22,21.5)
+```
+
+The data (athletes' heights and vertical jumps in inches) for female athletes from each of three sports are given in Table.
+
+```{r}
+athletes <- data.frame(cbind(id = 1:15), sport, height, jump)
+
+kable(athletes) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+a) Use R to conduct the MANOVA F-test using Wilks' Lambda to test for a difference in (height, jump) mean vectors across the three sports. Make sure you include clear command lines and relevant output/results with hypotheses, test result(s) and conclusion(s)/interpretation(s)
+
+We would then like to test if the properties are the same across the three sports.
+
+$H_0: \mu_1 = \mu_2$
+
+$H_1:$ The two $\mu's$ are unequal
+
+```{r}
+summary(manova(cbind(height, jump) ~ sport), test = "Wilks")
+```
+
+The Wilks’s test rejects the hypothesis $H_0$ that the mean vector for the three sports are equal.
+
+```{r}
+summary(manova(cbind(height, jump) ~ sport), test = "Roy")
+```
+
+The Roy’s test also rejects the hypothesis $H_0$ that the mean vector for the three sports are equal.
+
+```{r}
+summary(manova(cbind(height, jump) ~ sport), test = "Hotelling-Lawley")
+```
+
+The Hotelling-Lawley’s test also rejects the hypothesis $H_0$ that the mean vector for the three sports are equal.
+
+```{r}
+summary(manova(cbind(height, jump) ~ sport), test = "Pillai")
+```
+
+The Pillai’s test statistic test also rejects the hypothesis $H_0$ that the mean vector for the three sports are equal.
+
+```{r}
+athletes <- athletes %>% mutate(id = as.integer(id), sport, height = as.integer(height), jump = as.integer(jump))
+
+athletes_manova <- MANOVA.wide(cbind(height, jump) ~ sport, data = athletes,
+                               resampling = "paramBS",
+                               iter = 1000, alpha = 0.01, CPU = 1,
+                               seed = 987)
+summary(athletes_manova)
+
+summary.aov(manova(cbind(height, jump) ~ sport))
+```
+
+Since each of the four statistical tests indicates that the mean vector of the two variates (height, jump) across the three sports are significantly different from each other, the measurements across the sports has to be different.
+
+The hypothesis $H_0: \mu_1 = \mu_2$ was rejected for the athletes data. Next the two individual variables will be tested using the 0.05 level of significance.
+
+First variable, $y_1$ = athletes' heights jumps (inches)
+
+```{r}
+#https://www.r-bloggers.com/manova-test-statistics-with-r/
+#result <- mvn(data = athletes, mvnTest = "hz", multivariatePlot = "qq")
+athletes.manova <- aov(cbind(athletes$height) ~ sport, 
+                       data = athletes)
+athletes.summary <- summary(athletes.manova)
+athletes.summary
+```
+
+<!-- For F =  the p-value is .1094, and we do not reject HQ. For the other three variables we have Variable  -->
+
+Second variable, $y_2$ = athletes' vertical jumps (inches)
+
+```{r}
+athletes.manova <- aov(cbind(athletes$jump) ~ sport, 
+                       data = athletes)
+athletes.summary <- summary(athletes.manova)
+athletes.summary
+```
+
+From the output above, it can be seen that the two variables are highly significantly different among sport.
+
+b) State the assumptions of your test and check to see whether assumptions are met. Do you believe your inference is valid? Why or why not?
+
+Test Multivariate Normality 
+
+```{r}
+athletes.o <- athletes
+athletes <- athletes %>% dplyr::select(-c(id, sport))
+```
+
+```{r}
+# Graphical Assessment of Multivariate Normality
+center <- colMeans(athletes) # centroid
+n <- nrow(athletes); p <- ncol(athletes); cov <- cov(athletes); 
+d <- mahalanobis(athletes,center,cov) # distances 
+qqplot(qchisq(ppoints(n),df=p),d,
+       main="QQ Plot Assessing Multivariate Normality",
+       ylab="Mahalanobis D2")
+abline(a=0,b=1)
+```
+
+Significant departures from the line suggest violations of normality.
+
+
+```{r}
+athletes <- athletes.o
+
+#https://www.statmethods.net/stats/anovaAssumptions.html
+# Bartlett Test of Homogeneity of Variances
+bartlett.test(athletes$height~athletes$sport)
+bartlett.test(athletes$jump~athletes$sport)
+
+
+# Figner-Killeen Test of Homogeneity of Variances
+fligner.test(athletes$height~athletes$sport)
+fligner.test(athletes$jump~athletes$sport)
+
+
+# Homogeneity of Variance Plot
+hov(athletes$height~athletes$sport)
+hovPlot(athletes$height~athletes$sport)
+
+hov(athletes$jump~athletes$sport)
+hovPlot(athletes$jump~athletes$sport)
+```
+
+Equality of covariance matrices using Box's M-test 
+
+```{r}
+res <- boxM(cbind(athletes$height, athletes$jump), athletes$sport)
+res
+plot(res)
+
+athletes.group <- split(athletes[,3:4], athletes$sport)
+athletes.var <- sapply(athletes.group, function(x) {
+  apply(x, 2, var)
+}, simplify = 'data.frame')
+kable(athletes.var) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+The null hypothesis of equal variance-covariance matrices between groups fail to be rejected.  
+
+<!-- The groups have different variance-covariance matrices.  A multivariate analysis would therefore be suspect and biased, especially if non-normality was also present. -->
+
+c) Use R to examine the sample mean vectors for each group. Make sure you include clear command lines and relevant output/results. Also comment on the differences among the groups in terms of the specific variables.
+
+```{r}
+athletes.mean <- sapply(athletes.group, function(x) {
+  apply(x, 2, mean)
+}, simplify = 'data.frame')
+kable(athletes.mean) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+```{r}
+plot(athletes$sport, athletes$height,
+     xlab = "Sport", 
+     ylab = "Height (inches)", 
+     col = "light blue", las = 1)
+
+plotmeans(height ~ sport, data = athletes,
+          xlab = "Sport", ylab = "Height (inches)",
+          main="Mean Plot with 95% CI") 
+```
+
+```{r}
+plot(athletes$sport, athletes$jump,
+     xlab = "Sport", 
+     ylab = "Jump (inches)", 
+     col = "light blue", las = 1)
+
+plotmeans(jump ~ sport, data = athletes,
+          xlab = "Sport", ylab = "Jump (inches)",
+          main="Mean Plot with 95% CI") 
+```
+
+

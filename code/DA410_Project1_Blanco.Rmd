@@ -1,0 +1,312 @@
+---
+title: 'Project 1: Air Pollution'
+author: "Marjorie Blanco"
+subtitle: DA 410
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+library(dplyr)
+library(readr)
+library(knitr)
+library(tidyverse)
+library(reshape2)
+library(plyr)
+library(QuantPsyc)
+library(MVN)
+library(squash)
+library(kableExtra)
+```
+
+```{r, echo=FALSE}
+dist2full <- function(ds){
+  n<-attr(ds,"Size")
+  full<-matrix(0,n,n)
+  full[lower.tri(full)] <- ds
+  full+t(full)
+}
+
+# Get lower triangle of the correlation matrix
+get_lower_tri<-function(cormat){
+  cormat[upper.tri(cormat)] <- NA
+  return(cormat)
+}
+# Get upper triangle of the correlation matrix
+get_upper_tri <- function(cormat){
+  cormat[lower.tri(cormat)]<- NA
+  return(cormat)
+}
+
+reorder_cormat <- function(cormat){
+  # Use correlation between variables as distance
+  dd <- as.dist((1-cormat)/2)
+  hc <- hclust(dd)
+  cormat <-cormat[hc$order, hc$order]
+}
+
+getCor <- function(x) {
+  z <- cor(x)
+  zdf <- as.data.frame(as.table(z))
+  zdf <- arrange(zdf, desc(Freq))
+  zdf[zdf$Var1 != zdf$Var2, ]
+}
+```
+
+## Part 1: 
+
+Download `airpoll.txt` in this problem, we will only focus on the first 16 observations
+(cities). Read the data into R (as a data frame) and name the data as `airpol.full`
+
+```{r, message=FALSE}
+airpol.full <- read_table2("MV/airpoll.txt")
+```
+
+Then use the following code to “extract” the first 16 observations.
+
+```{r}
+airpol.full <- airpol.full %>% remove_rownames %>% column_to_rownames(var="City")
+airpol.data.sub <- airpol.full[1:16,1:7]
+```
+
+Display the subset data `airpol.data.sub`
+
+```{r, echo=FALSE}
+kable(airpol.data.sub) %>%
+  kable_styling("striped", full_width = T, font_size = 12)
+```
+
+## Part 2:
+
+Use R to perform the following analysis on the subset data `airpol.data.sub`. Make sure you include clear headings, command lines, and relevant output/results.
+
+a) Calculate the sample covariance matrix and the sample correlation matrix. Identify which pairs of variables seem to be strongly associated, and describe the nature (strength and direction) of the relationship between these variable pairs.
+
+### Sample covariance matrix
+
+```{r, echo=FALSE}
+kable(cov(airpol.data.sub), digits = 2) %>%
+  kable_styling("striped", full_width = T, font_size = 12)
+```
+
+### Sample correlation matrix
+
+| Range | Relationship |
+|---|---|
+| –1| A perfect downhill (negative) linear relationship|
+| -0.99 to -0.70 | A strong downhill (negative) linear relationship|
+| -0.69 to -0.50 | A moderate downhill (negative) relationship|
+| -0.49 to -0.30 | A weak downhill (negative) linear relationship|
+| -0.29 to 0.29 | No linear relationship|
+| 0.30 to 0.49 | A weak uphill (positive) linear relationship |
+| 0.50 to 0.69 | A moderate uphill (positive) relationship | 
+| 0.70 to 0.99 | A strong uphill (positive) linear relationship | 
+| 1 | A perfect uphill (positive) linear relationship | 
+
+```{r}
+cormat <- round(cor(airpol.data.sub), 2)
+melted_cormat <- melt(cormat)
+```
+
+```{r, echo=FALSE}
+library(reshape2)
+
+kable(cor(airpol.data.sub), digits = 2)  %>%
+  kable_styling("striped", full_width = T)
+
+# Reorder the correlation matrix
+cormat <- reorder_cormat(cormat)
+
+upper_tri <- get_upper_tri(cormat)
+# Melt the correlation matrix
+melted_cormat <- melt(upper_tri, na.rm = TRUE)
+# Create a ggheatmap
+ggheatmap <- ggplot(melted_cormat, aes(Var2, Var1, fill = value)) +
+  geom_tile(color = "white")+
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1,1), space = "Lab", 
+                       name="Pearson\nCorrelation") +
+  theme_minimal()+ # minimal theme
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+                                   size = 12, hjust = 1))+
+  coord_fixed()
+# Print the heatmap
+ggheatmap + 
+  geom_text(aes(Var2, Var1, label = value), color = "black", size = 4) +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.border = element_blank(),
+    panel.background = element_blank(),
+    axis.ticks = element_blank(),
+    legend.justification = c(1, 0),
+    legend.position = c(0.6, 0.7),
+    legend.direction = "horizontal") +
+  guides(fill = guide_colorbar(barwidth = 7, barheight = 1,
+                               title.position = "top", title.hjust = 0.5))
+```
+
+```{r,echo=FALSE}
+cov <- getCor(airpol.data.sub)
+cov <- cov[seq(1, nrow(cov), 2),]
+rownames(cov) <- NULL
+cov$Relationship <- ifelse(cov$Freq > 0, "Positive", "Negative")
+cov$Strength <- c("strong", rep("moderate", 7), "weak", rep("None",10), rep("moderate", 2))
+kable(cov, digits = 2)  %>%
+  kable_styling("striped", full_width = T)
+```
+
+`NOX` and `SO2` are the most positively strongly associated.  The correlation coefficient is 0.92.
+
+b) Calculate the distance matrix for these observations (after scaling the variables by dividing each variable by its standard deviation). Describe some of the most similar pairs of cities and some of the most different pairs of cities, giving evidence from the distance matrix.
+
+```{r}
+# finding standard deviations of variables
+std <-sapply(airpol.data.sub, sd)
+
+# dividing each variable by its standard deviation
+airpol.data.sub.std <-sweep(airpol.data.sub, 2, std, FUN = "/")
+
+dis <- dist(airpol.data.sub.std)
+dis.matrix <- dist2full(dis)
+dis.matrix <- round(dis.matrix, digits=2)
+
+rownames(dis.matrix) <- rownames(airpol.data.sub)
+colnames(dis.matrix) <- rownames(airpol.data.sub)
+```
+
+```{r, echo=FALSE, message=FALSE}
+library(scales)
+
+dis.matrix.m <- melt(dis.matrix) 
+dis.matrix.m <- ddply(dis.matrix.m, .(Var2), transform, rescale = rescale(value))
+
+p <- ggplot(dis.matrix.m, aes(Var2, Var1)) + 
+  geom_tile(aes(fill = rescale), colour = "white") + 
+  scale_fill_gradient(low = "white", high = "steelblue")
+
+base_size <- 7
+p <- p + theme_grey(base_size = base_size) + 
+  labs(x = "", y = "") +
+  scale_x_discrete(expand = c(0, 0)) +
+  scale_y_discrete(expand = c(0, 0)) + 
+  theme(axis.text.x  = element_text(angle=90, vjust=0.5)) +
+  theme(legend.position="bottom") +
+  geom_text(aes(Var2, Var1, label = value), color = "black", size = 2) 
+```
+
+```{r echo=FALSE, message=FALSE}
+jpeg('airpol_dist.jpg', width=1000, height=1000, unit='px')
+p
+dev.off()
+```
+
+```{r}
+kable(dis.matrix, digits = 2)  %>%
+  kable_styling("striped", full_width = T, font_size = 8) %>%
+  row_spec(0, angle = -45)
+
+dis.matrix.m <- dis.matrix.m %>% arrange(value) #%>% select(-rescale)
+dis.matrix.m <- dis.matrix.m[seq(1, nrow(dis.matrix.m), 2),]
+dis.matrix.m <- dis.matrix.m %>% filter(value != 0) %>% filter(value <= 1.67 | value >= 5.87) 
+colnames(dis.matrix.m) <- c("City 1", "City 2", "Distance", "Scale")
+dis.matrix.m$Note <- c(rep("Most similar", 5),  rep("Most different", 5))
+kable(dis.matrix.m, digits = 2)  %>%
+  kable_styling("striped", full_width = T)
+```
+
+```{r}
+dist_m <- as.matrix(dist(airpol.data.sub.std))
+dist_mi <- 1/dist_m # one over, as qgraph takes similarity matrices as input
+library(qgraph)
+jpeg('airpol_forcedraw.jpg', width=1000, height=1000, unit='px')
+qgraph(dist_mi, layout='spring', vsize=3, label.cex = 1)
+dev.off()
+```
+
+
+![](airpol_forcedraw.jpg)
+```{r}
+distogram(dist_m, title = 'Distance, Air Pollution Metrics')
+```
+
+c) Display a plot that will help assess whether this data set comes from a multivariate normal distribution. What is your conclusion based on the plot?
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, }
+ggplot(airpol.data.sub, aes(x=Rainfall)) + 
+  geom_density(alpha=.2, fill="#FF6666")
+```
+
+```{r, echo=FALSE, warning=FALSE}
+ggplot(airpol.data.sub, aes(x=Education)) + 
+  #geom_histogram(aes(y=..density..), colour="black", fill="white") +
+  geom_density(alpha=.2, fill="#FF6666")
+```
+
+```{r, echo=FALSE, warning=FALSE}
+ggplot(airpol.data.sub, aes(x=Popden)) + 
+  #geom_histogram(aes(y=..density..), colour="black", fill="white") +
+  geom_density(alpha=.2, fill="#FF6666")
+```
+
+```{r, echo=FALSE, warning=FALSE}
+ggplot(airpol.data.sub, aes(x=Nonwhite)) + 
+  #geom_histogram(aes(y=..density..), colour="black", fill="white") +
+  geom_density(alpha=.2, fill="#FF6666")
+```
+
+```{r, echo=FALSE, warning=FALSE}
+ggplot(airpol.data.sub, aes(x=NOX)) + 
+  #geom_histogram(aes(y=..density..), colour="black", fill="white") +
+  geom_density(alpha=.2, fill="#FF6666")
+```
+
+```{r, echo=FALSE, warning=FALSE}
+ggplot(airpol.data.sub, aes(x=SO2)) + 
+  #geom_histogram(aes(y=..density..), colour="black", fill="white") +
+  geom_density(alpha=.2, fill="#FF6666")
+```
+
+```{r, echo=FALSE, warning=FALSE}
+ggplot(airpol.data.sub, aes(x=Mortality)) + 
+  #geom_histogram(aes(y=..density..), colour="black", fill="white") +
+  geom_density(alpha=.2, fill="#FF6666")
+```
+
+```{r}
+result <- mvn(data = airpol.data.sub, mvnTest = "royston")
+result
+```
+
+```{r}
+# create univariate Q-Q plots
+result <- mvn(data = airpol.data.sub, mvnTest = "royston", univariatePlot = "qqplot")
+# create univariate histograms
+result <- mvn(data = airpol.data.sub, mvnTest = "royston", univariatePlot = "histogram")
+```
+
+
+```{r}
+result <- mvn(data = airpol.data.sub, mvnTest = "hz")
+result$multivariateNormality
+
+mn <- mult.norm(airpol.data.sub, chicrit=0.001)
+mn$mult.test
+
+result <- mvn(data = airpol.data.sub, mvnTest = "hz", multivariatePlot = "qq")
+
+# Mahalanobis distance
+result <- mvn(data = airpol.data.sub, mvnTest = "hz", multivariateOutlierMethod = "quan")
+# Adjusted Mahalanobis distance
+result <- mvn(data = airpol.data.sub, mvnTest = "hz", multivariateOutlierMethod = "adj")
+```
+
+From the figure, Mahalanobis distance and adjusted Mahalanobis distance declares 4 observations as multivariate outlier.
+
+According to the Henze-Zirkler’s test results, dataset for airpol does not follow a multivariate
+normal distribution.
+

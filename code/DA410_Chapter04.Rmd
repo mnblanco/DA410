@@ -1,0 +1,64 @@
+---
+title: "Chapter 4"
+author: "Marjorie Blanco"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(Matrix)
+library(pracma)
+```
+
+```{r}
+A <- as.matrix(data.frame(c(3, 0, -3), c(0, 6, 3), c(-3, 3, 6)))
+colnames(A) <- NULL
+T <- chol(A)
+
+A1 <- t(T) %*% T
+
+```
+
+standardized vector z 
+
+## 4.1
+
+```{r}
+E1 <- as.matrix(data.frame(c(14, 8, 3), c(8, 5, 2), c(3, 2, 1)))
+E2 <- as.matrix(data.frame(c(6, 6, 1), c(6, 8, 2), c(1, 2, 1)))
+colnames(E1) <-  colnames(E2) <- NULL
+det(E1)
+det(E2)
+Trace(E1)
+Trace(E2)
+
+cor(E1)
+cor(E2)
+```
+
+## 4.2
+
+(a) Find the distribution of z = 2y1 − y2 + 3y3.
+
+```{r}
+a <- as.matrix(data.frame(c(2, -1, 3)))
+colnames(a) <- NULL
+a
+```
+
+(b) Find the joint distribution of z1 = y1 + y2 + y3 and z2 = y1 − y2 + 2y3.
+
+```{r}
+a <- as.matrix(data.frame(c(1, 1, 1), c(1, -1, 2)))
+colnames(a) <- NULL
+a
+```
+
+
+(c) Find the distribution of y2.
+
+(d) Find the joint distribution of y1 and y3.
+
+(e) Find the joint distribution of y1, y3, and 1 (y1 + y2).
+
+

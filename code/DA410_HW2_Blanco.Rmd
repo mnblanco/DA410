@@ -1,0 +1,195 @@
+---
+title: 'Chapter 3: Characterizing and Displaying Multivariate Data'
+author: "Marjorie Blanco"
+subtitle: DA 410
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file(), message=FALSE, warning=FALSE, echo=FALSE)
+library(dplyr)
+library(readr)
+library(knitr)
+```
+
+## Problem 3.10 (a) and (c)
+
+Use the calcium data in Table 3.3:
+
+Y =
+```{r, echo=FALSE, message=FALSE}
+calcium <- read_table("Software-Files/T3_4_CALCIUM.CSV", col_names = c("Location Number", "y1", "y2", "y3"))
+kable(calcium, caption = "Table 3.3. Calcium in Soil and Turnip Greens")
+calcium <- select(calcium, -"Location Number")
+```
+
+
+$\overline{y}$  =
+```{r, echo=FALSE}
+y <- data.frame(mean = colMeans(calcium))
+kable(y, caption = "Mean vector y")
+```
+
+(a) Calculate S using the data matrix Y as in (3.29).
+
+S =
+```{r, echo=FALSE}
+S <- var(calcium)
+kable(S, caption = "Sample covariance matrix")
+```
+
+(c) Find R using (3.37).
+
+R =
+```{r, echo=FALSE}
+R <- cor(calcium)
+kable(R, caption = "Sample correlation matrix")
+```
+
+## Problem 3.14 (a) OR (b)
+
+For the variables in Table 3.3, define z = $3y_1$ - $y_2$ + $2y_3$ = (3, -1, 2) y. Find
+$\overline{z}$ and $s^2_z$ in two ways:
+
+(a) Evaluate z for each row of Table 3.3 and find $\overline{z}$ and $s^2_z$ directly from $z_1$, $z_2$,... , $z_{10}$ using (3.1) and (3.5).
+
+### Sample mean of z
+
+z = 
+```{r, echo=FALSE}
+calcium2 <- sweep(calcium, 2, c(3,-1, 2), "*")
+
+z <- data.frame(mean = rowSums(calcium2))
+rownames(z) <- paste(rep(c("z"), nrow(calcium)), rep(1:nrow(calcium)), sep="")
+kable(z)
+```
+
+```{r}
+z_bar <- sum(z) * (1/nrow(calcium))
+```
+
+$\overline{z}$ = `r z_bar`
+
+```{r}
+a <- c(3,-1, 2)
+s2z<- t(a) %*% as.matrix(S) %*% a
+```
+
+$s^2_z$ = `r s2z`
+
+(b) Use $\overline{z}$ = a' $\overline{y}$ and $s^2_z$ = a'Sa, as in (3.54) and (3.55).
+
+```{r}
+y_bar <- colMeans(calcium)
+a <- matrix( c(3,-1, 2))
+```
+
+### Sample mean of z
+
+```{r}
+z_bar <- t(a) %*% as.matrix(y_bar)
+```
+
+$\overline{z}$ = `r z_bar`
+
+### Covariance matrix
+
+```{r}
+S <- cov(calcium)
+```
+
+S =
+```{r, echo=FALSE}
+kable(S)
+```
+
+### Sample variance of $z_1$, $z_2$,... , $z_n$
+
+```{r}
+s2z<- t(a) %*% as.matrix(S) %*% a
+```
+
+$s^2_z$ = `r s2z`
+
+## Problem 3.21 (a) and (b)
+
+The data in Table 3.7 consist of head measurements on first and second sons (Frets 1921). Define $y_1$ and $y_2$ as the measurements on the first son and $x_1$ and $x_2$ for the second son.
+
+```{r, echo=FALSE, message=FALSE}
+bones <- read_table("Software-Files/T3_8_SONS.DAT", col_names = c("y1", "y2", "x1", "x2"))
+kable(bones, caption = "Table 3.7. Measurements on the First and Second Adult
+Sons in a Sample of 25 Families")
+#bones <- bones %>% select(-Individual)
+```
+
+(a) Find the mean vector for all four variables and partition it into $\binom{\overline{y}}{\overline{x}}$ as in (3.41).
+
+```{r}
+y <- data.frame(mean = colMeans(bones))
+```
+
+$\binom{\overline{y}}{\overline{x}}$ =
+```{r, echo=FALSE}
+rownames(y) <- colnames(bones)
+kable(y)
+```
+
+(b) Find the covariance matrix for all four variables and partition it into
+
+$$\mathbf{S} = \left[\begin{array}
+{rrr}
+S_{yy} & S_{yx} \\
+S_{xy} & S_{xx}
+\end{array}\right]
+$$
+
+as in (3.42).
+
+S =
+```{r, echo=FALSE}
+cov <- cov(bones)
+kable(cov, digits = 2)
+```
+
+$S_{yy}$ =
+```{r, echo=FALSE}
+kable(cov[1:2, 1:2], digits = 2)
+```
+
+
+$S_{yx}$ =
+```{r, echo=FALSE}
+kable(cov[1:2, 3:4], digits = 2)
+```
+
+$S_{xy}$ =
+```{r, echo=FALSE}
+kable(cov[3:4, 1:2], digits = 2)
+```
+
+$S_{xx}$ =
+```{r, echo=FALSE}
+kable(cov[3:4, 3:4], digits = 2)
+```
+
+```{r}
+Syy <- matrix(c(cov(bones$y1, bones$y1), cov(bones$y1, bones$y2), cov(bones$y2, bones$y1), cov(bones$y2, bones$y2)), nrow = 2, byrow = TRUE)
+
+Sxx <- matrix(c(cov(bones$x1, bones$x1), cov(bones$x1, bones$x2), cov(bones$x2, bones$x1), cov(bones$x2, bones$x2)), nrow = 2, byrow = TRUE)
+
+Syx <- matrix(c(cov(bones$y1, bones$x1),  cov(bones$y1, bones$x2), cov(bones$y2, bones$x1), cov(bones$y2, bones$x2)), nrow = 2, byrow = TRUE)
+
+Sxy <- t(Syx)
+
+S <- cbind(rbind(Syy, Sxy), rbind(Syx, Sxx))
+```
+
+S =
+```{r, echo=FALSE}
+round(S, 2)
+```
+
+

@@ -1,0 +1,71 @@
+---
+title: "Untitled"
+author: "Marjorie Blanco"
+date: "1/17/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(sjPlot)
+library(knitr)
+```
+
+```{r}
+data("weightgain", package = "HSAUR")
+
+kable(head(weightgain, 10))
+tapply(weightgain$weightgain, list(weightgain$source, weightgain$type), mean)
+tapply(weightgain$weightgain, list(weightgain$source, weightgain$type), sd)
+wg_aov <- aov(weightgain ~ source * type, data = weightgain)
+coef(wg_aov)
+plot.design(weightgain)
+summary(wg_aov)
+
+interaction.plot(weightgain$type, weightgain$source, weightgain$weightgain) 
+```
+
+```{r}
+library(MANOVA.RM)
+
+data("EEG", package = "MANOVA.RM")
+
+EEG_MANOVA <- MANOVA(resp ~ sex * diagnosis, data = EEG,
+                     subject = "id", resampling = "paramBS",
+                     iter = 1000, alpha = 0.01, CPU = 1,
+                     seed = 987)
+summary(EEG_MANOVA)
+```
+
+
+```{r}
+# library(MANOVA.RM)
+# data("o2cons")
+# 
+# 
+# data("o2cons")
+# model1 <- RM(O2 ~ Group * Staphylococci * Time, data = o2cons, 
+#              subject = "Subject", no.subf = 2, iter = 1000,
+# resampling = "Perm", seed = 1234)
+# summary(model1)
+
+```
+
+```{r}
+data("EEG")
+ EEG_model <- RM(resp ~ sex * diagnosis * feature * region,
+data = EEG, subject = "id", no.subf = 2,
+resampling = "WildBS", iter = 1000, alpha = 0.01,
+CPU = 4, seed = 123)
+summary(EEG_model)
+
+plot(EEG_model, factor = "sex", main = "Effect of sex on EEG values")
+plot(EEG_model, factor = "diagnosis", main = "Effect of diagnosis on EEG values")
+plot(EEG_model, factor = "feature", main = "Effect of feature on EEG values")
+
+plot(EEG_model, factor = "sex:diagnosis", legendpos = "topleft",
+col = c(4, 2), ylim = c(-1.8, 0.8))
+plot(EEG_model, factor = "sex:diagnosis:feature",
+legendpos = "bottomright", gap = 0.05)
+```
+

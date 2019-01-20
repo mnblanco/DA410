@@ -1,0 +1,126 @@
+---
+title: 'Chapter 6: Multivariate Analysis of Variance'
+author: "Marjorie Blanco"
+subtitle: "DA 410"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+```{r setup, include=FALSE}
+  # html_document:
+  #   df_print: paged
+library(readr)
+library(kableExtra)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
+
+Baten, Tack, and Baeder (1958) compared judges' scores on fish prepared by three methods. Twelve fish were cooked by each method, and several judges tasted fish samples and rated each on four variables: $y_1$ = aroma, $y_2$ = flavor, $y_3$ = texture, and $y_4$ = moisture. The data are in Table 6.17. Each entry is an average score for the judges on that fish.
+
+```{r}
+fish <- read_table2("Software-Files/T6_17_FISH.CSV", 
+                    col_names = c("Method", "y1", "y2", "y3", "y4", "y5"), 
+                    col_types = cols(y5 = col_skip()))
+```
+
+(a) Compare the three methods using all four MANOVA tests.
+
+```{r echo=FALSE}
+fish$Method <- as.factor(fish$Method)
+n <- dim(fish)[1] / length(unique(fish$Method))
+total.means <- colMeans(fish[,2:5])
+```
+
+
+```{r echo=FALSE}
+kable(total.means) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+```{r echo=FALSE}
+fish.group <- split(fish[,2:5], fish$Method)
+fish.means <- sapply(fish.group, function(x) {
+  apply(x, 2, mean)
+}, simplify = 'data.frame')
+```
+
+```{r echo=FALSE}
+kable(fish.means) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+```{r echo=FALSE}
+H = matrix(data = 0, nrow = 4, ncol = 4)
+for (i in 1:dim(H)[1]) {
+  for (j in 1:i) {
+    H[i,j] <- n * sum((fish.means[i,] - total.means[i]) * (fish.means[j,] - total.means[j]))
+    H[j,i] <- n * sum((fish.means[j,] - total.means[j]) * (fish.means[i,] - total.means[i]))
+  }
+}
+```
+
+H = 
+```{r echo=FALSE}
+kable(H) %>% 
+  kable_styling(bootstrap_options = "striped")
+```
+
+```{r}
+# E = matrix(data = 0, nrow = 4, ncol = 4)
+# for (i in 1:dim(E)[1]) {
+#   for (j in 1:i) {
+#     b <- c() 
+#     for (k in fish.group) {
+#       a <- sum((k[,i] - mean(k[,i])) * (k[,j] - mean(k[,j])))
+#       print(a)
+#       b <- append(b, a)
+#       
+#     }
+#     E[i,j] <- sum(b)
+#     E[j,i] <- sum(b)
+#   }
+# }
+# E
+```
+
+```{r}
+fish.manova <- manova(cbind(fish$y1, fish$y2, fish$y3, fish$y4) ~ Method, data = fish)
+fish.summary <- summary(fish.manova)
+fish.summary
+```
+
+```{r}
+fish.summary$SS
+```
+
+We would then like to test if the properties are the same across the three sports.
+
+$H_0: \mu_1 = \mu_2$
+
+$H_1:$ The two $\mu's$ are unequal
+
+```{r}
+summary(manova(cbind(fish$y1, fish$y2, fish$y3, fish$y4) ~ fish$Method), test = "Wilks")
+```
+
+The Wilks’s test rejects the hypothesis $H_0$ that the mean vector for the three sports are equal.
+
+```{r}
+summary(manova(cbind(fish$y1, fish$y2, fish$y3, fish$y4) ~ fish$Method), test = "Roy")
+```
+
+The Roy’s test also rejects the hypothesis $H_0$ that the mean vector for the three sports are equal.
+
+```{r}
+summary(manova(cbind(fish$y1, fish$y2, fish$y3, fish$y4) ~ fish$Method), test = "Hotelling-Lawley")
+```
+
+The Hotelling-Lawley’s test also rejects the hypothesis $H_0$ that the mean vector for the three sports are equal.
+
+```{r}
+summary(manova(cbind(fish$y1, fish$y2, fish$y3, fish$y4) ~ fish$Method), test = "Pillai")
+```
+
+(b) Compute the following measures of multivariate association from Section 6.1.8 : r)\, rfg, $A_A$, $A{LH}$, $A_P$.
+
+(c) Based on the eigenvalues, is the essential dimensionality of the space containing the mean vectors equal to 1 or 2?
