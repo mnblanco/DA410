@@ -1,0 +1,401 @@
+---
+title: 'Project 4: Classification Analysis'
+author: "Marjorie Blanco"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+subtitle: DA 410
+always_allow_html: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+library(readr)
+library(dplyr)
+library(Morpho)
+library(matlib)
+library(caret)
+library(class)
+library(ggvis)
+library(car)
+library(kableExtra)
+```
+
+
+```{r, echo=FALSE}
+getCor <- function(x) {
+  z <- cor(x)
+  zdf <- as.data.frame(as.table(z))
+  zdf <- arrange(zdf, desc(Freq))
+  zdf[zdf$Var1 != zdf$Var2, ]
+}
+```
+
+## Problem 9.7 (c)
+
+Use R built-in function (e.g. knn) to do 9.7 (c), try different k values and find out the best solution. 
+
+Do some EDA at the very beginning and make a clean explanation of how and why you choose your final model.
+
+Four measurements were made on two species of flea beetles (Lubischew 1962). The variables are:
+
+y1 = distance of transverse groove from posterior border of prothorax ($\mu$m), 
+
+y2 = length of elytra (in .01 mm),
+
+y3 = length of second antennal joint ($\mu$m),
+
+y4 = length of third antennal joint ($\mu$m).
+
+```{r}
+data <- read_table2("Software-Files/T5_5_FBEETLES.DAT", col_names =  c("exp", "species" , "y1", "y2", "y3", "y4"), cols(
+  exp = col_skip(),
+  species = col_factor(),
+  y1 = col_double(),
+  y2 = col_double(),
+  y3 = col_double(),
+  y4 = col_double()
+))
+
+train.data <- data %>% select(-species)
+label.data <- data %>% select(species)
+```
+
+```{r}
+oleracea <- data %>% filter(species == 1) %>% select(-species)
+carduorum <- data %>% filter(species == 2) %>% select(-species)
+```
+
+Table 1: Summary Statistics of the Flea Beetles data set
+
+```{r}
+summary(data %>% select(-species)) 
+```
+
+From above summary statistics, it shows us that all the attributes have a different range. The data needs to be standardized. 
+
+Table 2: Summary Statistics of the Haltica oleracea species
+
+```{r}
+summary(oleracea) 
+```
+
+Table 3: Summary Statistics of the Haltica carduorum species
+
+```{r}
+summary(carduorum) 
+```
+
+As noted in the introduction section, the measurement unit for length of elytra (mm) is different the the other 3 variables.
+
+```{r}
+scatterplotMatrix(train.data)
+```
+
+This chart confirms that the data is not normally distributed.
+
+```{r,echo=FALSE}
+cov <- getCor(train.data)
+cov <- cov[seq(1, nrow(cov), 2),]
+rownames(cov) <- NULL
+cov$Relationship <- ifelse(cov$Freq > 0, "Positive", "Negative")
+cov$Strength <- c("Strong", rep("Moderate", 2), rep("Weak",3))
+kable(cov, digits = 2)  %>%
+  kable_styling("striped", full_width = T)
+```
+
+The length of elytra and length of second antennal joint are positively highly correlated. The distance of transverse groove from posterior border of prothorax is weakly correlated with the other 3 variables.
+
+```{r}
+ggplot() +
+geom_boxplot(aes(y = y1, x = species), data) +
+  ylab("Distance of transverse groove from posterior border of prothorax") +
+  xlab("") +
+  theme_minimal() +
+  scale_x_discrete(labels=c("1" = "Haltica oleracea", "2" = "Haltica carduorum"))
+```
+
+The average distance of transverse groove from posterior border of prothorax appears to be significantly differernt.  There are outlier points and data is skewed.
+
+```{r}
+ggplot() +
+geom_boxplot(aes(y = y2, x = species), data) +
+  ylab("Length of elytra") +
+  xlab("") +
+  theme_minimal() +
+  scale_x_discrete(labels=c("1" = "Haltica oleracea", "2" = "Haltica carduorum"))
+```
+
+The average distance of transverse groove from posterior border of prothorax appears to be significantly differernt.  The data appears to be skewed.
+
+```{r}
+ggplot() +
+geom_boxplot(aes(y = y3, x = species), data) +
+  ylab("Length of second antennal joint") +
+  xlab("") +
+  theme_minimal() +
+  scale_x_discrete(labels=c("1" = "Haltica oleracea", "2" = "Haltica carduorum"))
+```
+
+The average length of second antennal joint appear to be significantly differernt.  The data appears to be skewed.
+
+```{r}
+ggplot() +
+geom_boxplot(aes(y = y4, x = species), data) +
+  ylab("Length of third antennal joint") +
+  xlab("") +
+  theme_minimal() +
+  scale_x_discrete(labels=c("1" = "Haltica oleracea", "2" = "Haltica carduorum"))
+```
+
+The average length of third antennal joint appear to be significantly differernt.  The data appears to be skewed.
+
+```{r}
+ggplot() +
+geom_point(aes(y1, y2, color = species), data) +
+  xlab("Distance of transverse groove from posterior border of prothorax") +
+  ylab("Length of elytra") +
+    scale_colour_discrete(name  ="Species",
+                            breaks=c("1", "2"),
+                            labels=c("Haltica oleracea", "Haltica carduorum")) +
+  theme_minimal() +
+  scale_x_discrete(labels=c("1" = "Haltica oleracea", "2" = "Haltica carduorum")) + 
+  theme(legend.position="bottom")
+```
+
+The data points are more spread out over the graph and a few points overlap.
+
+```{r}
+ggplot() +
+geom_point(aes(y1, y3, color = species), data) +
+  xlab("Distance of transverse groove from posterior border of prothorax") +
+  ylab("Length of second antennal joint") +
+    scale_colour_discrete(name  ="Species",
+                            breaks=c("1", "2"),
+                            labels=c("Haltica oleracea", "Haltica carduorum")) +
+  theme_minimal() +
+  scale_x_discrete(labels=c("1" = "Haltica oleracea", "2" = "Haltica carduorum")) + 
+  theme(legend.position="bottom")
+```
+
+The data points are more spread out over the graph and a few more points overlap than the previous chart.
+
+```{r}
+ggplot() +
+geom_point(aes(y1, y4, color = species), data) +
+  xlab("Distance of transverse groove from posterior border of prothorax") +
+  ylab("Length of third antennal joint") +
+    scale_colour_discrete(name  ="Species",
+                            breaks=c("1", "2"),
+                            labels=c("Haltica oleracea", "Haltica carduorum")) +
+  theme_minimal() +
+  scale_x_discrete(labels=c("1" = "Haltica oleracea", "2" = "Haltica carduorum")) + 
+  theme(legend.position="bottom")
+```
+
+The data points are more spread out over the graph and some points overlap.
+
+```{r}
+ggplot() +
+geom_point(aes(y2, y3, color = species), data) +
+  xlab("Length of elytra") +
+  ylab("Length of second antennal joint") +
+    scale_colour_discrete(name  ="Species",
+                            breaks=c("1", "2"),
+                            labels=c("Haltica oleracea", "Haltica carduorum")) +
+  theme_minimal() +
+  scale_x_discrete(labels=c("1" = "Haltica oleracea", "2" = "Haltica carduorum")) + 
+  theme(legend.position="bottom")
+```
+
+The data points are more spread out over the graph and more points overlap than the previous plots.
+
+```{r}
+ggplot() +
+geom_point(aes(y2, y4, color = species), data) +
+  xlab("Length of elytra") +
+  ylab("Length of third antennal joint") +
+    scale_colour_discrete(name  ="Species",
+                            breaks=c("1", "2"),
+                            labels=c("Haltica oleracea", "Haltica carduorum")) +
+  theme_minimal() +
+  scale_x_discrete(labels=c("1" = "Haltica oleracea", "2" = "Haltica carduorum")) + 
+  theme(legend.position="bottom")
+```
+
+The data points are more spread out over the graph and some points overlap.
+
+```{r}
+ggplot() +
+geom_point(aes(y3, y4, color = species), data) +
+  xlab("Length of second antennal joint") +
+  ylab("Length of third antennal joint") +
+    scale_colour_discrete(name  ="Species",
+                            breaks=c("1", "2"),
+                            labels=c("Haltica oleracea", "Haltica carduorum")) +
+  theme_minimal() +
+  scale_x_discrete(labels=c("1" = "Haltica oleracea", "2" = "Haltica carduorum")) + 
+  theme(legend.position="bottom")
+```
+
+
+The data points are more spread out over the graph and some points overlap.
+
+Computing KNN classifier
+
+This tests will use different possible values of k and fits the final best KNN model that explains the best the beetle data.
+
+```{r echo=FALSE}
+# Initialize total within sum of squares error: wss
+wss <- 0
+
+# Look over 1 to 15 possible clusters
+for (i in 1:15) {
+  # Fit the model: km.out
+  km.out <- kmeans(train.data, centers = i, nstart = 20, iter.max = 50)
+  # Save the within cluster sum of squares
+  wss[i] <- km.out$tot.withinss
+}
+
+# Produce a scree plot
+plot(1:15, wss, type = "b", 
+     xlab = "Number of Clusters", 
+     ylab = "Within groups sum of squares")
+
+```
+
+The scree plot suggest K = 5.
+
+Find the classification table using the nearest neighbor method.
+
+### Nearest neighbor method using caret package
+
+#### No scaling 
+
+```{r}
+set.seed(400)
+ctrl <- trainControl(method="repeatedcv", repeats = 10)
+```
+
+```{r echo=TRUE}
+knnFit <- train(species ~ ., data = data, method = "knn", trControl = ctrl)
+knnFit
+```
+
+This shows the Accuracy and Kappa metrics result for different k value. From the results, it automatically selects best k-value. Here, our training model is choosing k = 5 as its final value.
+
+```{r echo=FALSE}
+
+plot(knnFit)
+
+data$prediction <- predict(knnFit)
+
+cm <- confusionMatrix(data$species, data$prediction)
+cm
+```
+
+```{r}
+kable(data) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+```{r}
+data$prediction <- NULL
+```
+
+#### Scaling 
+
+```{r echo=TRUE}
+knnFit <- train(species ~ ., data = data, method = "knn", trControl = ctrl, 
+                preProcess = c("center", "scale"))
+knnFit
+```
+
+This shows the Accuracy and Kappa metrics result for different k value. From the results, it automatically selects best k-value. Here, our training model is choosing k = 7 as its final value.  The Accuracy is lower than the previous model.
+
+```{r echo=FALSE}
+plot(knnFit)
+
+data$prediction <- predict(knnFit)
+
+cm <- confusionMatrix(data$species, data$prediction)
+cm
+```
+
+```{r}
+kable(data) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+### Nearest neighbor method using class package
+
+#### Nearest neighbor method K = 2
+
+```{r echo=TRUE}
+data$prediction <-  knn(train = train.data, test = train.data, cl = as.matrix(label.data), k = 2)
+```
+
+Classification Table for the Beetle Data of Table 5.5 Using the k Nearest Neighbor Method with k=2
+
+```{r}
+data$prediction <- predict(knnFit)
+
+cm <- confusionMatrix(data$species, data$prediction)
+cm
+```
+
+Correct classification rate = `r round(cm$overall[1], 3)`
+
+Error rate = `r 1 - round(cm$overall[1], 3)`
+
+#### Nearest neighbor method K = 3
+
+```{r echo=TRUE}
+data$prediction <-  knn(train = train.data, test = train.data, cl = as.matrix(label.data), k = 3)
+```
+
+Classification Table for the Beetle Data of Table 5.5 Using the k Nearest Neighbor Method with k=3
+
+```{r}
+cm <- confusionMatrix(data$species, data$prediction)
+cm
+```
+
+Correct classification rate = `r round(cm$overall[1], 3)`
+
+Error rate = `r 1 - round(cm$overall[1], 3)`
+
+#### Nearest neighbor method K = 4
+
+```{r echo=TRUE}
+data$prediction <-  knn(train = train.data, test = train.data, cl = as.matrix(label.data), k = 4)
+```
+
+```{r}
+cm <- confusionMatrix(data$species, data$prediction)
+cm
+```
+
+Correct classification rate = `r round(cm$overall[1], 3)`
+
+Error rate = `r 1 - round(cm$overall[1], 3)`
+
+
+#### Nearest neighbor method K = 5
+
+```{r echo=TRUE}
+data$prediction <-  knn(train = train.data, test = train.data, cl = as.matrix(label.data), k = 5)
+```
+
+```{r}
+cm <- confusionMatrix(data$species, data$prediction)
+cm
+```
+
+Correct classification rate = `r round(cm$overall[1], 3)`
+
+Error rate = `r 1 - round(cm$overall[1], 3)`
+
+This model predict similarly as the model in part (b).  The correct classification rate and error rate are the same as the rates in model in part (b).

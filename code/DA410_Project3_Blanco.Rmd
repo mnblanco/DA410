@@ -1,0 +1,361 @@
+---
+title: 'Project 3: Discriminant Analysis'
+author: "Marjorie Blanco"
+subtitle: DA 410
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+library(readr)
+library(ggplot2)
+library(MASS)
+library(kableExtra)
+library(klaR)
+library(caret)
+library(dplyr)
+library(formattable)
+library(stats)
+library(heplots)
+library(gridExtra)
+options(scipen=999)
+```
+
+## Problem 1
+
+1. Use admission.csv as a training dataset.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+train.admission <- read_csv("data/admission.csv", skip = 1, col_names =  c("GPA" , "GMAT", "Decission"))
+kable(head(train.admission, 5)) %>%
+  kable_styling(bootstrap_options = "striped")
+train.admission$Decission <- as.factor(train.admission$Decission)
+
+ggplot(train.admission, aes(GMAT, GPA)) +
+  geom_point(aes(color = Decission))  +
+  scale_color_manual(breaks = c("admit", "border", "notadmit"),
+                    values=c("green", "yellow", "red"))
+```
+
+
+```{r}
+train.admission <- data.frame(train.admission)
+boxM(train.admission[,1:2],train.admission[,3])
+```
+
+The results indicate that the three groups have similar variance-covariance matrices.
+
+2. Train model using LDA by setting admit/not-admit/border with the same probabilities.
+
+The purpose of linear discriminant analysis (LDA) is to find the linear combinations of the original variables (GPA and GMAT) that gives the best possible separation between the groups (admission recomendation) in the data set.
+
+```{r echo=TRUE}
+# Fit the model
+lda.model1 <- lda(Decission~., data = train.admission)
+lda.model1
+```
+
+The first discriminant function is a linear combination of the variables: $5.008766354 x  GPA + 0.008568593 x GMAT$
+
+The second discriminant function is a linear combination of the variables: $1.87668220 x GPA - 0.01445106 x GMAT$
+
+The LDA probability of admitting is `r round(lda.model1$prior[[1]] * 100, 0)`% while probability of not admitting is `r round(lda.model1$prior[[3]] * 100, 0)`% and probability of border is `r round(lda.model1$prior[[2]] * 100, 0)`%.
+
+3. Calculate the misclassfication rate
+
+```{r}
+correct <- rep(0, times=nrow(train.admission))
+for (j in 1:nrow(train.admission))
+{
+  mydis<- lda(grouping = train.admission$Decission[-j],
+  x=train.admission[-j, 1:2],
+  prior = c(0.5, 0.25, 0.25))
+  mypred <- predict(mydis, newdata = train.admission[j, 1:2])$class
+  correct[j] <- (mypred == train.admission$Decission[j])
+}
+cv.missclass <- 1 - mean(correct)
+```
+
+The training model correctly classified `r round(1 - cv.missclass, 3) * 100`% of observations, which is an increase from problem 1 accuracy.
+
+The training model misclassification rate for LDA is `r round(cv.missclass, 3) * 100`%.
+
+### Confusion Matrix
+
+```{r}
+predictions1 <- predict(lda.model1, train.admission)
+cm <- confusionMatrix(train.admission$Decission, predictions1$class)
+cm
+```
+
+Here, we can see that 28 out of 31 admit decission are expected to be correctly classified, 24 out of 26 border decission are expected to be correctly classified, and 26 out of 28 notadmit decission are expected to be correctly classified.
+
+### Chi-squared
+
+```{r}
+Xsq <- chisq.test(cm$table)
+```
+
+Observed:
+
+```{r}
+Xsq$observed   # observed counts (same as M)
+```
+
+Expected:
+
+```{r}
+Xsq$expected   # expected counts under the null
+```
+
+Residuals:
+
+```{r}
+Xsq$residuals  # Pearson residuals
+```
+
+Standardized residuals:
+
+```{r}
+Xsq$stdres     # standardized residuals
+```
+
+```{r}
+lda.data <- cbind(train.admission, predict(lda.model1)$x)
+ggplot(lda.data, aes(LD1, LD2)) +
+  geom_point(aes(color = Decission))  +
+  scale_color_manual(breaks = c("admit", "border", "notadmit"),
+                    values=c("green", "yellow", "red"))
+
+partimat(Decission~., data=train.admission, method="lda") 
+```
+
+4. Predict students with GPA and GMAT score as below.
+
+```{r echo=FALSE}
+GPA <- c(3.14, 3.08, 2.08, 3.22) 
+GMAT <- c(470, 591, 641, 463)
+test.admission <- data.frame(GPA, GMAT)
+```
+
+```{r}
+predictions1 <- predict(lda.model1, test.admission)
+
+lda.data <- cbind(test.admission, predictions1$x, Decission = predictions1$class)
+ggplot(lda.data, aes(GMAT, GPA)) +
+  geom_point(aes(color = Decission)) +
+  scale_color_manual(breaks = c("admit", "border", "notadmit"),
+                    values=c("green", "yellow", "red"))
+
+ggplot(lda.data, aes(LD1, LD2)) +
+  geom_point(aes(color = Decission)) +
+  scale_color_manual(breaks = c("admit", "border", "notadmit"),
+                    values=c("green", "yellow", "red"))
+```
+
+```{r echo=FALSE}
+kable(lda.data) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+## Problem 2
+
+1. Use admission.csv as a training dataset.
+
+2. Train model using LDA by setting probability of admit is 50% while probability of not admit is 25% and probability of border is 25%.
+
+```{r}
+# Fit the model
+lda.model2 <- lda(Decission~., prior = c(0.5, 0.25, 0.25), data = train.admission)
+lda.model2
+```
+
+The first discriminant function is a linear combination of the variables: $4.961868967 x GPA + 0.008915905 x GMAT$
+
+The second discriminant function is a linear combination of the variables: $1.9973815 x GPA - 0.0142394 x GMAT$
+
+3. Calculate the misclassfication rate
+
+```{r}
+correct <- rep(0, times=nrow(train.admission))
+for (j in 1:nrow(train.admission))
+{
+  mydis<- lda(grouping = train.admission$Decission[-j],
+  x=train.admission[-j, 1:2],
+  prior = c(0.5, 0.25, 0.25))
+  mypred <- predict(mydis, newdata = train.admission[j, 1:2])$class
+  correct[j] <- (mypred == train.admission$Decission[j])
+}
+cv.missclass <- 1 - mean(correct)
+```
+
+The training model correctly classified `r round(1 - cv.missclass, 3) * 100`% of observations, which is an increase from problem 1 accuracy.
+
+The training model misclassification rate for LDA is `r round(cv.missclass, 3) * 100`%.
+
+### Confusion Matrix
+
+```{r}
+predictions2 <- predict(lda.model2, train.admission)
+cm <- confusionMatrix(train.admission$Decission, predictions2$class)
+cm
+```
+
+Here, we can see that 29 out of 31 admit decission are expected to be correctly classified, 25 out of 26 border decission are expected to be correctly classified, and 26 out of 28 notadmit decission are expected to be correctly classified.
+
+### Chi-squared
+
+```{r}
+Xsq <- chisq.test(cm$table)
+```
+
+Observed:
+
+```{r}
+Xsq$observed   # observed counts (same as M)
+```
+
+Expected:
+
+```{r}
+Xsq$expected   # expected counts under the null
+```
+
+Residuals:
+
+```{r}
+Xsq$residuals  # Pearson residuals
+```
+
+Standardized residuals:
+
+```{r}
+Xsq$stdres     # standardized residuals
+```
+
+
+```{r}
+lda.data <- cbind(train.admission, predict(lda.model2)$x)
+ggplot(lda.data, aes(LD1, LD2)) +
+  geom_point(aes(color = Decission)) +
+  scale_color_manual(breaks = c("admit", "border", "notadmit"),
+                    values=c("green", "yellow", "red"))
+```
+
+4. Predict students with GPA and GMAT score as below.
+
+```{r}
+predictions2 <- predict(lda.model2, test.admission)
+
+lda.data <- cbind(test.admission, predictions2$x, Decission = predictions2$class)
+ggplot(lda.data, aes(GMAT, GPA)) +
+  geom_point(aes(color = Decission)) +
+  scale_color_manual(breaks = c("admit", "border", "notadmit"),
+                    values=c("green", "yellow", "red"))
+
+ggplot(lda.data, aes(LD1, LD2)) +
+  geom_point(aes(color = Decission)) +
+  scale_color_manual(breaks = c("admit", "border", "notadmit"),
+                    values=c("green", "yellow", "red"))
+```
+
+```{r echo=FALSE}
+kable(lda.data) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+Compare differences of the result from problem 1.
+
+Both model predicted the same decission but the second model has an improved accurancy over the first first model.
+
+## Problem 3
+
+Explain what is Quadratic Discriminant Analysis (QDA), and use QDA to train the model, discuss if this project can be done better by QDA, why or why not. 
+
+Quadratic discriminant analysis is a common tool for classification.  QDA is used to determine which variables discriminate between two or more naturally occurring groups.  QDA is closely related to LDA, where it assumes that the observations from each class of Y are drawn from a Gaussian distribution but assumes that each class has its own covariance matrix (i.e not identical).  This project can not be done with QDA because the training set is not large enough.
+
+Checking the Assumption of Equal Variance
+
+```{r}
+plot <- list()
+ 
+box_variables <- c("GPA", "GMAT")
+for(i in box_variables) {
+  plot[[i]] <- ggplot(train.admission, aes_string(x = "Decission", y = i, fill = "Decission")) + 
+    geom_boxplot(alpha = 0.2) + 
+    theme(legend.position = "none") + 
+    scale_color_manual(values = c("green", "yellow", "red")) 
+    scale_fill_manual(values = c("green", "yellow", "red"))
+}
+ 
+do.call(grid.arrange, c(plot, nrow = 1))
+```
+
+The two diferent boxplots show us that the length of each plot clearly differs. This is an indication for non-equal variances.
+
+Checking the Assumption of Equal Covariance Ellipse
+
+```{r}
+heplots::covEllipses(train.admission[,1:2], 
+                     train.admission$Decission, 
+                     fill = TRUE, 
+                     pooled = FALSE, 
+                     col = c("green", "yellow", "red"), 
+                     variables = c(1:2), 
+                     fill.alpha = 0.05)
+```
+
+```{r}
+bartlett.test(GPA ~ Decission, data = train.admission)
+bartlett.test(GMAT ~ Decission, data = train.admission)
+```
+
+```{r}
+ggplot(train.admission, aes(x = GMAT, y = GPA, col = Decission)) + 
+  geom_point() +
+  stat_ellipse() +
+  scale_color_manual(values = c("green", "yellow", "red"))
+```
+
+From this scatterplot, we can clearly see that the variance for the admit and notadmit group is much wider than the variance from the border group. This is because the green and red points have a wider spread. The yellow points in contrast do not have as wide of a spread as the green and red points.
+
+Use the BoxM test in order to check our assumption of homogeneity of variance-covariance matrices.
+
+$H_o$ = Covariance matrices of the outcome variable are equal across all groups
+
+$H_a$ = Covariance matrices of the outcome variable are different for at least one group
+
+
+```{r}
+boxm <- heplots::boxM(train.admission[, c(1:2)], train.admission$Decission) 
+boxm
+```
+
+We reject the null hypothesis and conclude that we covariance matrices of the outcome variable for at least one group. The plot below gives information of how the groups differ in the components that go into Box’s M test.
+
+```{r}
+plot(boxm)
+```
+
+This plot confirms the visualizations that we have ellipses of different sizes and therefore, no equal variance-covariance matrices. 
+
+```{r}
+leveneTest(GMAT ~ Decission, train.admission)
+leveneTest(GPA ~ Decission, train.admission)
+```
+
+```{r echo=TRUE}
+# Fit the model
+model <- qda(Decission~., data = train.admission)
+model
+```
+
+```{r}
+predictions3 <- predict(model, train.admission)
+cm <- confusionMatrix(train.admission$Decission, predictions3$class)
+cm
+```

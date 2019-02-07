@@ -1,0 +1,336 @@
+---
+title: 'Assignment 5: Classification Analysis'
+author: "Marjorie Blanco"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+subtitle: DA 410
+always_allow_html: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+library(readr)
+library(dplyr)
+library(Morpho)
+library(matlib)
+library(caret)
+library(class)
+library(ggvis)
+library(car)
+library(kableExtra)
+```
+
+## Problem 9.7 (a)(b)(c)
+
+Do a classification analysis on the beetle data of Table 5.5 as follows:
+
+(a) Find the classification function and and the cutoff point
+
+```{r}
+bettle_df <- read_table2("Software-Files/T5_5_FBEETLES.DAT", col_names =  c("exp", "Group" , "y1", "y2", "y3", "y4"), cols(
+  exp = col_skip(),
+  Group = col_factor(),
+  y1 = col_double(),
+  y2 = col_double(),
+  y3 = col_double(),
+  y4 = col_double()
+))
+```
+
+Let $G_1$ = Haltica oleracea and $G_2$ = Haltica carduorum
+
+```{r}
+oleracea <- bettle_df %>% filter(Group == 1) %>% select(-Group)
+carduorum <- bettle_df %>% filter(Group == 2) %>% select(-Group)
+
+oleracea <- as.matrix(oleracea)
+carduorum <- as.matrix(carduorum)
+```
+
+###  Mean vectors
+
+```{r,echo=TRUE}
+y_bar1 <- colMeans(oleracea)
+y_bar2 <- colMeans(carduorum)
+```
+
+$\overline{y_1} =$
+```{r  echo=FALSE}
+kable(t(y_bar1)) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+$\overline{y_2} =$ 
+```{r  echo=FALSE}
+kable(t(y_bar2)) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+### Covariance matrices
+
+```{r,echo=TRUE}
+S1 <- cov(oleracea)
+S2 <- cov(carduorum)
+```
+
+S1 =
+```{r  echo=FALSE}
+kable(S1) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+S2 =
+```{r echo=FALSE}
+kable(S2) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+### Pooled covariance matrix
+      
+```{r,echo=TRUE}
+Spl <- (1/ (nrow(oleracea) + nrow(carduorum) - 2)) *
+  ((nrow(oleracea) - 1) * S1 + (nrow(carduorum) - 1) * S2)
+```
+  
+Spl =
+```{r echo=FALSE}
+kable(Spl) %>%
+  kable_styling(bootstrap_options = "striped")
+```        
+
+$a' = (y_1 - y_2 )'S_{pl}^{-1}y$
+
+```{r,echo=TRUE}
+a_prime <- t(y_bar1 - y_bar2) %*% inv(Spl)
+```
+
+$a' =$
+```{r echo=FALSE}
+kable(a_prime) %>%
+  kable_styling(bootstrap_options = "striped")
+```    
+
+```{r,echo=TRUE}
+z_bar1 <- a_prime %*% y_bar1
+```
+
+$\overline{z_1} =$
+```{r echo=FALSE}
+kable(z_bar1) %>%
+  kable_styling(bootstrap_options = "striped")
+``` 
+
+```{r,echo=TRUE}
+z_bar2 <- a_prime %*% y_bar2
+```
+
+$\overline{z_2} =$
+```{r echo=FALSE}
+kable(z_bar2) %>%
+  kable_styling(bootstrap_options = "striped")
+``` 
+
+```{r,echo=TRUE}
+z <- (z_bar1 + z_bar2) /2
+```
+
+$z =$
+```{r echo=FALSE}
+kable(z) %>%
+  kable_styling(bootstrap_options = "striped")
+``` 
+
+Assign y to $G_1$ if z $\ge$ `r z[1]`
+
+Assign y to $G_2$ if z < `r z[1]`
+
+Find the classification table using the linear classification function in part (a).
+
+```{r echo=FALSE}
+bettle_matrix <- as.matrix(bettle_df[,2:5])
+
+for (i in 1:nrow(bettle_matrix)) {
+  bettle_df[i, "z"] <-  a_prime %*% bettle_matrix[i, ]
+}
+
+bettle_df$prediction <- as.factor(ifelse(bettle_df$z > z[1], 1, 2))
+```
+
+```{r}
+kable(bettle_df) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+(b) Find the classification table using the linear classification function in part (a).
+
+Classification Table for the Beetle Data of Table 5.5
+
+```{r}
+cm <- confusionMatrix(bettle_df$Group, bettle_df$prediction)
+cm
+```
+
+```{r}
+ggplot() +
+  geom_point(aes(x = Group,  y= z, color = Group, shape = prediction), bettle_df) +
+  geom_hline(yintercept=z, linetype="dashed", color = "red")  +
+  xlab("Species") +
+  scale_colour_discrete(name  ="Species",
+                            breaks=c("1", "2"),
+                            labels=c("Haltica oleracea", "Haltica carduorum")) +
+      scale_shape_discrete(name  ="Prediction",
+                           breaks=c("1", "2"),
+                           labels=c("Haltica oleracea", "Haltica carduorum"))
+```
+
+(c) Find the classification table using the nearest neighbor method.  Assign 3rd point from two datasets into group1 or group2. 
+
+We compare $y_3$ to each $y_i$, i=1, 2,... ,k, by the distance function
+
+$D^2_i(y_3) = (y_3 - \overline{y}_i)' S^{-1}_{pl} (y_3 - \overline{y}_i)$
+
+and assign y to the group for which $D^2_i(y_3)$ is smallest.
+
+```{r echo=FALSE}
+bettle_df$Distance <- 0
+```
+
+```{r echo=TRUE}
+for (i in 1:nrow(bettle_matrix))
+{
+   if (i != 3)
+     bettle_df[i,"Distance"] <- t((bettle_matrix[3,] - bettle_matrix[i,])  
+                                  %*% solve(Spl) 
+                                  %*% (bettle_matrix[3,]- bettle_matrix[i,]))
+}
+```
+
+Let $y_3$ =
+```{r}
+bettle_df <- tibble::rowid_to_column(bettle_df, "ID")
+kable(bettle_df[3,3:6]) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+This table shows the distance between vector 3 from $G_1$ and all other vectors.
+
+```{r}
+kable(bettle_df[-3,]) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+Using k = 2 the group assign to vector 3 to $G_1$.
+
+Let k = 2 for our k-Nearest Neighbor algorithm.  This means we classify $y_3$ according to the two point in the training set it is closet to.
+In this case, $y_3$ is closest to $y_7$ and $y_{12}$, and therefore we classify $y_3$ to $G_1$.
+
+```{r}
+kable(bettle_df[-3,] %>% arrange(Distance) %>% dplyr::select(-c(z,prediction)) %>% head(2)) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+Using k = 3 the group assign to vector 3 to $G_1$.
+
+Let k = 3 for our k-Nearest Neighbor algorithm.  This means we classify $y_3$ according to the three point in the training set it is closet to.
+In this case, $y_3$ is closest to $y_7$, $y_{10}$ and $y_{12}$, and therefore we classify $y_3$ to $G_1$.
+
+```{r}
+kable(bettle_df[-3,] %>% arrange(Distance) %>% dplyr::select(-c(z,prediction)) %>% head(3)) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+Using k = 4 the group assign to vector 3 to $G_1$.
+
+Let k = 4 for our k-Nearest Neighbor algorithm.  This means we classify $y_3$ according to the four point in the training set it is closet to.
+In this case, $y_3$ is closest to $y_7$, $y_{10}$, $y_{12}$ and $y_4$, and therefore we classify $y_3$ to $G_1$.
+
+```{r}
+kable(bettle_df[-3,] %>% arrange(Distance) %>% dplyr::select(-c(z,prediction)) %>% head(4)) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+Using k = 5 the group assign to vector 3 to $G_1$.
+
+Let k = 5 for our k-Nearest Neighbor algorithm.  This means we classify $y_3$ according to the five point in the training set it is closet to.
+In this case, $y_3$ is closest to $y_7$, $y_{10}$, $y_{12}$, $y_4$ and $y_{11}$, and therefore we classify $y_3$ to $G_1$.
+
+```{r}
+kable(bettle_df[-3,] %>% arrange(Distance) %>% dplyr::select(-c(z,prediction)) %>% head(5)) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+We compare $y_{22}$ to each $y_i$, i=1, 2,... ,k, by the distance function
+
+$D^2_i(y_{22}) = (y_{22} - \overline{y}_i)' S^{-1}_{pl} (y_{22} - \overline{y}_i)$
+
+and assign y to the group for which $D^2_i(y_{22})$ is smallest.
+
+```{r echo=FALSE}
+bettle_df$Distance <- 0
+```
+
+```{r echo=TRUE}
+for (i in 1:nrow(bettle_df))
+{
+   if (i != 22)
+     bettle_df[i,"Distance"] <- t((bettle_matrix[22,] - bettle_matrix[i,])  
+                                  %*% solve(Spl) 
+                                  %*% (bettle_matrix[22,]- bettle_matrix[i,]))
+}
+```
+
+Let $y_{22}$ =
+```{r}
+kable(bettle_df[22,3:6]) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+This table shows the distance between vector 3 from $G_2$ and all other vectors.
+
+```{r}
+kable(bettle_df[-22,]) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+Using k = 2 the group assign to vector 3 to $G_2$.
+
+Let k = 2 for our k-Nearest Neighbor algorithm.  This means we classify $y_{22}$ according to the two point in the training set it is closet to.
+In this case, $y_{22}$ is closest to $y_{24}$ and $y_{26}$, and therefore we classify $y_{22}$ to $G_2$.
+
+```{r}
+kable(bettle_df[-22,] %>% arrange(Distance) %>% dplyr::select(-c(z,prediction)) %>% head(2)) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+Using k = 3 the group assign to vector 3 to $G_2$.
+
+Let k = 3 for our k-Nearest Neighbor algorithm.  This means we classify $y_{22}$ according to the three point in the training set it is closet to.
+In this case, $y_{22}$ is closest to $y_{24}$, $y_{26}$, and $y_{25}$, and therefore we classify $y_{22}$ to $G_2$.
+
+```{r}
+kable(bettle_df[-22,] %>% arrange(Distance) %>% dplyr::select(-c(z,prediction)) %>% head(3)) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+Using k = 4 the group assign to vector 3 to $G_2$.
+
+Let k = 4 for our k-Nearest Neighbor algorithm.  This means we classify $y_{22}$ according to the four point in the training set it is closet to.
+In this case, $y_{22}$ is closest to $y_{24}$, $y_{26}$, $y_{25}$, and $y_{33}$, and therefore we classify $y_{22}$ to $G_2$.
+
+```{r}
+kable(bettle_df[-22,] %>% arrange(Distance) %>% dplyr::select(-c(z,prediction)) %>% head(4)) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+Using k = 5 the group assign to vector 3 to $G_2$.
+
+Let k = 5 for our k-Nearest Neighbor algorithm.  This means we classify $y_{22}$ according to the five point in the training set it is closet to.
+In this case, $y_{22}$ is closest to $y_{24}$, $y_{26}$, $y_{25}$, $y_{33}$ and $y_{23}$, and therefore we classify $y_{22}$ to $G_2$.
+
+```{r}
+kable(bettle_df[-22,] %>% arrange(Distance) %>% dplyr::select(-c(z,prediction)) %>% head(5)) %>%
+  kable_styling(bootstrap_options = "striped")
+```

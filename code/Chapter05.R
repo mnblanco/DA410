@@ -174,6 +174,8 @@ root.summary
 
 barsteel <- read_table("Software-Files/T6_6_BARSTEEL.DAT", col_names = c("A", "B", "y1", "y2"))
 
+
+
 total.means <- colMeans(barsteel[,2:5])
 total.means
 
@@ -313,3 +315,91 @@ pig.summary <- summary(pig.manova)
 pig.summary
 
 pig.summary$SS
+
+
+barsteel <- read_table("Software-Files/T6_6_BARSTEEL.DAT", col_names = c("A", "B", "y1", "y2"))
+
+barsteel$A <- as.factor(barsteel$A)
+barsteel$B <- as.factor(barsteel$B)
+
+barsteel.manova <- manova(cbind(barsteel$y1, barsteel$y2) ~ barsteel$A, 
+                      data = barsteel)
+barsteel.summary <- summary(barsteel.manova)
+barsteel.summary
+
+HA <- barsteel.summary$SS$`barsteel$A`
+HA
+
+barsteel.manova <- manova(cbind(barsteel$y1, barsteel$y2) ~ barsteel$B, 
+                          data = barsteel)
+barsteel.summary <- summary(barsteel.manova)
+barsteel.summary
+
+HB <- barsteel.summary$SS$`barsteel$B`
+HB
+
+
+
+barsteel.manova <- manova(cbind(barsteel$y1, barsteel$y2) ~ barsteel$A * barsteel$B, 
+                          data = barsteel)
+barsteel.summary <- summary(barsteel.manova)
+barsteel.summary
+
+E <- barsteel.summary$SS$Residuals
+E
+HA <- barsteel.summary$SS$`barsteel$A`
+HA
+HB <- barsteel.summary$SS$`barsteel$B`
+HB
+HAB <- barsteel.summary$SS$`barsteel$A:barsteel$B`
+HAB
+
+
+lambdaA <- det(E) / det(E + HA)
+lambdaA
+Vs <- lambdaA / (1 + lambdaA)
+
+e1h.eigen <- eigen(solve(E) %*% HA)
+Vs <- sum(e1h.eigen$values / (1 + e1h.eigen$values))
+
+lambdaB <- det(E) / det(E + HB)
+lambdaB
+
+lambdaAB <- det(E) / det(E + HAB)
+lambdaAB
+
+
+# bodymeasgrps <- data.frame(read_table2("MV/bodymeasgrps.csv", skip = 17))
+# 
+# # number of observations for the 'young' group and the 'old' group:
+# l1 <- length(bodymeasgrps$agegp == "young")
+# l2 <- length(bodymeasgrps$agegp == "old")
+# 
+# # Splitting the data matrix (while removing the 9th column, agegp)
+# # into two subsets, one for old and another for young:
+# x1 <- bodymeasgrps %>% filter(agegp == "young") %>% dplyr::select(-agegp)
+# x2 <- bodymeasgrps %>% filter(agegp == "old") %>% dplyr::select(-agegp)
+# my.q <- ncol(x1)
+# 
+# # Sample mean vectors for the 'young' group and the 'old' group:
+# m1 <-apply(x1, 2, mean)
+# m2 <-apply(x2, 2, mean)
+# 
+# # "pooled" sample covariance matrix:
+# S123 <-((l1-1)*var(x1)+(l2-1)*var(x2))/(l1+l2-2)
+# c <- cov(bodymeasgrps %>% dplyr::select(-agegp))
+# c <- cov(x1 , x2)
+# 
+# # Hotelling T^2, the F-statistic, and the P-value:
+# T2 <-((l1*l2)/(l1+l2))* (t(m1-m2) %*% solve(S123) %*% (m1-m2) ) 
+# 
+# Fstat <-((l1+l2-my.q-1)*T2)/((l1+l2-2)*my.q)
+# pvalue <-1-pf(Fstat, my.q, l1+l2-my.q-1)
+# 
+# print(paste("Hotelling T^2 =", round(T2,4), "F=", round(Fstat,4), "P-value =", round(pvalue,4) ))
+# 
+# summary(manova(cbind(bodymeasgrps$weight, bodymeasgrps$height, bodymeasgrps$neck, bodymeasgrps$chest,  bodymeasgrps$hip, bodymeasgrps$thigh, bodymeasgrps$biceps, bodymeasgrps$wrist) ~ bodymeasgrps$agegp),test="Hotelling")
+# 
+# 
+# fit <- hotelling.stat(x1, x2)
+# fit

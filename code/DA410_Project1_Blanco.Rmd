@@ -20,6 +20,7 @@ library(QuantPsyc)
 library(MVN)
 library(squash)
 library(kableExtra)
+print.digits <- 2 
 ```
 
 ```{r, echo=FALSE}

@@ -2,11 +2,14 @@
 title: 'Project 2: Multiple Analysis of Variance'
 author: "Marjorie Blanco"
 subtitle: DA 410
-output: html_document
+output:
+  pdf_document: default
+  word_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 library(readr)
 library(Hotelling)
@@ -17,6 +20,7 @@ library(gplots)
 library(mvnormtest)
 library(HH)
 library(heplots)
+library(ICSNP)
 ```
 
 ## Part 1: 
@@ -25,13 +29,13 @@ Download `testscoredata.txt` and read it in R or SAS.
 
 Use Hotelling’s T^2 test to test for a difference in the mean score vector of the boys and the mean vector of the girls. Make sure you include clear command lines and relevant output/results with hypotheses, test result(s) and conclusion(s)/interpretation(s).
 
+```{r echo=FALSE, message=FALSE, error=FALSE}
+testscoredata <- data.frame(read_table2("data/testscoredata.txt"))
+```
+
 ```{r}
-testscoredata <- data.frame(read_table2("MV/testscoredata.txt"))
 boys <- testscoredata %>% filter(sex == "boy") %>% dplyr::select(math, reading)
 girls <- testscoredata %>% filter(sex == "girl") %>% dplyr::select(math, reading)
-
-fit <- hotelling.stat(boys, girls)
-fit
 
 test.group <- split(testscoredata[,2:3], testscoredata$sex)
 test.means <- sapply(test.group, function(x) {
@@ -41,50 +45,16 @@ kable(test.means) %>%
   kable_styling(bootstrap_options = "striped")
 
 
-library(ICSNP)
+fit <- hotelling.stat(boys, girls)
+fit
+
 HotellingsT2(boys,girls, test="f")
 HotellingsT2(boys,girls, test="chi")
 
 summary(manova(cbind(testscoredata$math, testscoredata$reading) ~ testscoredata$sex), test="Hotelling")
-
-
-# bodymeasgrps <- data.frame(read_table2("MV/bodymeasgrps.csv", skip = 17))
-# 
-# # number of observations for the 'young' group and the 'old' group:
-# l1 <- length(bodymeasgrps$agegp == "young")
-# l2 <- length(bodymeasgrps$agegp == "old")
-# 
-# # Splitting the data matrix (while removing the 9th column, agegp)
-# # into two subsets, one for old and another for young:
-# x1 <- bodymeasgrps %>% filter(agegp == "young") %>% dplyr::select(-agegp)
-# x2 <- bodymeasgrps %>% filter(agegp == "old") %>% dplyr::select(-agegp)
-# my.q <- ncol(x1)
-# 
-# # Sample mean vectors for the 'young' group and the 'old' group:
-# m1 <-apply(x1, 2, mean)
-# m2 <-apply(x2, 2, mean)
-# 
-# # "pooled" sample covariance matrix:
-# S123 <-((l1-1)*var(x1)+(l2-1)*var(x2))/(l1+l2-2)
-# c <- cov(bodymeasgrps %>% dplyr::select(-agegp))
-# c <- cov(x1 , x2)
-# 
-# # Hotelling T^2, the F-statistic, and the P-value:
-# T2 <-((l1*l2)/(l1+l2))* (t(m1-m2) %*% solve(S123) %*% (m1-m2) ) 
-# 
-# Fstat <-((l1+l2-my.q-1)*T2)/((l1+l2-2)*my.q)
-# pvalue <-1-pf(Fstat, my.q, l1+l2-my.q-1)
-# 
-# print(paste("Hotelling T^2 =", round(T2,4), "F=", round(Fstat,4), "P-value =", round(pvalue,4) ))
-# 
-# summary(manova(cbind(bodymeasgrps$weight, bodymeasgrps$height, bodymeasgrps$neck, bodymeasgrps$chest,  bodymeasgrps$hip, bodymeasgrps$thigh, bodymeasgrps$biceps, bodymeasgrps$wrist) ~ bodymeasgrps$agegp),test="Hotelling")
-# 
-# 
-# fit <- hotelling.stat(x1, x2)
-# fit
 ```
 
-Comparing the value of the test statistic $T^2$ with critical value $T^2_{2,59}$ = 15.373 (TBD), we are led to reject the hypothesis of equal mean vectors for the gender groups.
+Comparing the value of the test statistic $T^2$ with critical value, we are led to reject the hypothesis of equal mean vectors for the gender groups.
 
 ```{r}
 hovPlot(testscoredata$math~testscoredata$sex)
@@ -172,31 +142,7 @@ summary.aov(manova(cbind(height, jump) ~ sport))
 
 Since each of the four statistical tests indicates that the mean vector of the two variates (height, jump) across the three sports are significantly different from each other, the measurements across the sports has to be different.
 
-The hypothesis $H_0: \mu_1 = \mu_2$ was rejected for the athletes data. Next the two individual variables will be tested using the 0.05 level of significance.
-
-First variable, $y_1$ = athletes' heights jumps (inches)
-
-```{r}
-#https://www.r-bloggers.com/manova-test-statistics-with-r/
-#result <- mvn(data = athletes, mvnTest = "hz", multivariatePlot = "qq")
-athletes.manova <- aov(cbind(athletes$height) ~ sport, 
-                       data = athletes)
-athletes.summary <- summary(athletes.manova)
-athletes.summary
-```
-
-<!-- For F =  the p-value is .1094, and we do not reject HQ. For the other three variables we have Variable  -->
-
-Second variable, $y_2$ = athletes' vertical jumps (inches)
-
-```{r}
-athletes.manova <- aov(cbind(athletes$jump) ~ sport, 
-                       data = athletes)
-athletes.summary <- summary(athletes.manova)
-athletes.summary
-```
-
-From the output above, it can be seen that the two variables are highly significantly different among sport.
+The hypothesis $H_0: \mu_1 = \mu_2$ was rejected for the athletes data. 
 
 b) State the assumptions of your test and check to see whether assumptions are met. Do you believe your inference is valid? Why or why not?
 
@@ -219,7 +165,6 @@ abline(a=0,b=1)
 ```
 
 Significant departures from the line suggest violations of normality.
-
 
 ```{r}
 athletes <- athletes.o
@@ -245,6 +190,10 @@ hovPlot(athletes$jump~athletes$sport)
 
 Equality of covariance matrices using Box's M-test 
 
+$H_0$: The observed covariance matrices for the dependent variables are equal across groups
+
+$H_1$: The observed covariance matrices for the dependent variables are not equal across groups
+
 ```{r}
 res <- boxM(cbind(athletes$height, athletes$jump), athletes$sport)
 res
@@ -258,9 +207,7 @@ kable(athletes.var) %>%
   kable_styling(bootstrap_options = "striped")
 ```
 
-The null hypothesis of equal variance-covariance matrices between groups fail to be rejected.  
-
-<!-- The groups have different variance-covariance matrices.  A multivariate analysis would therefore be suspect and biased, especially if non-normality was also present. -->
+The non-significant test result, p-value `r res$p.value` > 0.05, the null hypothesis of equal variance-covariance matrices between groups fail to be rejected.  
 
 c) Use R to examine the sample mean vectors for each group. Make sure you include clear command lines and relevant output/results. Also comment on the differences among the groups in terms of the specific variables.
 
@@ -271,6 +218,19 @@ athletes.mean <- sapply(athletes.group, function(x) {
 kable(athletes.mean) %>%
   kable_styling(bootstrap_options = "striped")
 ```
+
+The two individual variables will be tested using the 0.05 level of significance.
+
+First variable, $y_1$ = athletes' heights jumps (inches)
+
+```{r}
+athletes.manova <- aov(cbind(athletes$height) ~ sport, 
+                       data = athletes)
+athletes.summary <- summary(athletes.manova)
+athletes.summary
+```
+
+For F = `r athletes.summary[[1]][["F value"]][1]` the p-value is `r athletes.summary[[1]][["Pr(>F)"]][1]`, and we reject $H_0$
 
 ```{r}
 plot(athletes$sport, athletes$height,
@@ -283,6 +243,17 @@ plotmeans(height ~ sport, data = athletes,
           main="Mean Plot with 95% CI") 
 ```
 
+Second variable, $y_2$ = athletes' vertical jumps (inches)
+
+```{r}
+athletes.manova <- aov(cbind(athletes$jump) ~ sport, 
+                       data = athletes)
+athletes.summary <- summary(athletes.manova)
+athletes.summary
+```
+
+For F = `r athletes.summary[[1]][["F value"]][1]`  the p-value is `r round(athletes.summary[[1]][["Pr(>F)"]][1], 2)`, and we reject $H_0$
+
 ```{r}
 plot(athletes$sport, athletes$jump,
      xlab = "Sport", 
@@ -294,4 +265,4 @@ plotmeans(jump ~ sport, data = athletes,
           main="Mean Plot with 95% CI") 
 ```
 
-
+From the output above, it can be seen that the two variables are highly significantly different among sport.

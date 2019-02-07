@@ -1,0 +1,52 @@
+---
+title: "Chapter 12"
+author: "Marjorie Blanco"
+date: "2/2/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+library(readr)
+library(dplyr)
+library(ggplot2)
+```
+
+##
+
+```{r}
+data <- read_table2("Software-Files/T3_8_SONS.DAT", col_names =  c("y1", "y2", "y3", "y4"))  
+
+A <- as.matrix(data[1:2])
+y_bar <- colMeans(A)
+S <- cov(A)
+
+values <- eigen(S)$values
+vectors <- eigen(S)$vectors
+
+ggplot() +
+  geom_point(aes(y1, y2), data[,1:2])
+```
+
+##
+
+```{r}
+data <- read_table2("Software-Files/T8_3_FOOTBALL.DAT", col_names =  c("group","y1", "y2", "y3", "y4", "y5", "y6"))  
+data <- data %>% filter(group != 1)
+A <- as.matrix(data[2:7])
+y_bar <- colMeans(A)
+S <- cov(A)
+values <- eigen(S)$values
+vectors <- eigen(S)$vectors
+
+total_var <- sum(values)
+
+a1 <- t(vectors[,1])
+a2 <- t(vectors[,1])
+
+ggplot() +
+  geom_point(aes(y1, y2), data[,2:3])
+```
+
+##
