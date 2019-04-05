@@ -1,0 +1,81 @@
+---
+title: "Untitled"
+author: "Marjorie Blanco"
+date: "February 21, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(psych)
+library(kableExtra)
+```
+
+13.7 Use the words data of Table 5.9.
+
+(a) Obtain principal component loadings for two factors.
+
+
+You may use R to solve this part (NO built-in function). Follow the 5-steps of the example introduced in the handout to obtain principal component loadings for two factors. Make sure to show your work completely.
+
+```{r}
+data <-read.table("Software-Files/T5_9_ESSAY.DAT")
+colnames(data) <- c("student" ,"Informal words", "Informal verbs", "Formal words", "Formal verbs")
+data <- data[,2:5]
+```
+
+Step 1: Find correlation matrix R.
+
+```{r}
+res.cor <- cor(data)
+```
+
+R=
+```{r}
+kable(round(res.cor, 2))
+```
+
+```{r}
+res.cov <- cov(data)
+```
+
+S=
+```{r}
+kable(round(res.cov, 2))
+```
+
+Step 2: Find the eigenvalue D and eigenvectors C of R.
+
+```{r}
+res.eig <- eigen(res.cor)
+res.eig
+```
+
+Step 3: Find $C_1$ and $D_1$
+
+```{r}
+c.1 <- res.eig$vectors[,1:2]
+d.1 <- diag(res.eig$values[1:2])
+```
+
+Step 4: Find = $C_1D^{1/2}_1$
+
+```{r}
+l <- as.data.frame(c.1 %*% sqrt(d.1))
+l
+```
+
+Step 5: Obtain loadings
+
+```{r}
+l[,3] <- l[,1] + l[,2]
+l[,4] <- 1 - l[,3]
+l
+```
+```{r}
+solution <-fa(r = res.cor, nfactors = 2, rotate = "oblimin", fm = "pa")
+#display the solution output
+solution
+```
+
