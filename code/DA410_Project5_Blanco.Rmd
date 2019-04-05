@@ -1,0 +1,231 @@
+---
+title: 'Project 5: Canonical Correlation Analysis'
+author: "Marjorie Blanco"
+subtitle: DA 410
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
+
+```{r message=FALSE, warning=FALSE}
+library(readr)
+library(knitr)
+library(kableExtra)
+library(CCA)
+require(GGally)
+library(CCA)
+library(yacca)
+options(scipen=999)
+```
+
+Use R to solve Chapter 11 Page 402: #11.9
+
+Make sure you include the commands and outputs, as well as the interpretations of the outputs.
+
+(a) Find the canonical correlations between ($y_1$, $y_2$) and ($x_1$, $x_2$).
+
+```{r}
+sons <- as.data.frame(read_table("Software-Files/T3_8_SONS.DAT", 
+                                 col_names = c("First.Son.Head.Length", 
+                                               "First.Son.Head.Breadth", 
+                                               "Second.Son.Head.Length", 
+                                               "Second.Son.Head.Breadth"),
+                                 cols(
+                                   First.Son.Head.Length = col_integer(),
+                                   First.Son.Head.Breadth = col_integer(),
+                                   Second.Son.Head.Length = col_integer(),
+                                   Second.Son.Head.Breadth = col_integer())))
+```
+
+For this analysis, we are going to investigate the associations between first son measures and second son measures.
+
+We have a data file, sons.dat, with `r nrow(sons)` observations on four variables. The first son variables are head length and head breadth. The second son variables are head length and head breadth.
+
+```{r echo=FALSE}
+first.son <- sons[, 1:2]
+second.son <- sons[, 3:4]
+
+ggpairs(first.son)
+```
+
+```{r echo=FALSE}
+ggpairs(second.son)
+```
+
+
+Correlations
+
+```{r}
+matcor(first.son, second.son)
+```
+
+Display the canonical correlations
+
+```{r}
+cc1 <- cc(first.son, second.son)
+cc1$cor
+```
+
+$r_1$ = `r cc1$cor[1]`
+
+$r_2$ = `r cc1$cor[2]` 
+
+The first canonical variate captures the most explained variance, canonical r = `r cc1$cor[1]`.  
+
+The scree graph of canonical correlations:
+
+```{r, echo=FALSE}
+barplot(cc1$cor, xlab = "Dimension", ylab = "Canonical correlations", names.arg = 1:2, ylim = c(0,1))
+```
+
+(b) Find the standardized coefficients for the canonical variates.
+
+Raw canonical coefficients
+
+```{r}
+cc1[3:4]
+```
+
+The variable `r rownames(cc1[3:4]$xcoef)[1]`, a one unit increase  leads to a `r abs(cc1[3:4]$xcoef[1,][1])` decrease in the first canonical variate of set 1 when all of the other variables are held constant.
+
+The variable `r rownames(cc1[3:4]$xcoef)[2]`, a one unit increase  leads to a `r abs(cc1[3:4]$xcoef[2,][1])` decrease in the first canonical variate of set 1 when all of the other variables are held constant.
+
+The variable `r rownames(cc1[3:4]$xcoef)[1]`, a one unit increase  leads to a `r abs(cc1[3:4]$xcoef[1,][2])` decrease in the second canonical variate of set 1 when all of the other variables are held constant.
+
+The variable `r rownames(cc1[3:4]$xcoef)[2]`, a one unit increase  leads to a `r abs(cc1[3:4]$xcoef[2,][2])` increase in the second canonical variate of set 1 when all of the other variables are held constant.
+
+The variable `r rownames(cc1[3:4]$ycoef)[1]`, a one unit increase  leads to a `r abs(cc1[3:4]$ycoef[1,][1])` decrease in the first canonical variate of set 2 when all of the other variables are held constant.
+
+The variable `r rownames(cc1[3:4]$ycoef)[2]`, a one unit increase  leads to a `r abs(cc1[3:4]$ycoef[2,][1])` decrease in the first canonical variate of set 2 when all of the other variables are held constant.
+
+The variable `r rownames(cc1[3:4]$ycoef)[1]`, a one unit increase  leads to a `r abs(cc1[3:4]$ycoef[1,][2])` decrease in the second canonical variate of set 2 when all of the other variables are held constant.
+
+The variable `r rownames(cc1[3:4]$ycoef)[2]`, a one unit increase  leads to a `r abs(cc1[3:4]$ycoef[2,][2])` increase in the second canonical variate of set 2 when all of the other variables are held constant.
+
+Compute canonical loadings
+
+```{r}
+cc2 <- comput(first.son, second.son, cc1)
+cc2[3:6]
+```
+
+Standardized first.son canonical coefficients diagonal matrix of first.son sd's
+
+```{r}
+s1 <- diag(sqrt(diag(cov(first.son))))
+s1 %*% cc1$xcoef
+```
+
+```{r echo=FALSE}
+s1coef <- s1 %*% cc1$xcoef
+```
+
+
+The variable `r rownames(cc1[3:4]$xcoef)[1]`, a one standard deviation increase in reading leads to a `r abs(s1coef[1,1])` standard deviation decrease in the score on the first canonical variate for set 1 when the other variables in the model are held constant.
+
+The variable `r rownames(cc1[3:4]$xcoef)[1]`, a one standard deviation increase in reading leads to a `r abs(s1coef[1,2])` standard deviation decrease in the score on the second canonical variate for set 1 when the other variables in the model are held constant.
+
+The variable `r rownames(cc1[3:4]$xcoef)[2]`, a one standard deviation increase in reading leads to a `r abs(s1coef[2,1])` standard deviation decrease in the score on the first canonical variate for set 1 when the other variables in the model are held constant.
+
+The variable `r rownames(cc1[3:4]$xcoef)[2]`, a one standard deviation increase in reading leads to a `r abs(s1coef[2,2])` standard deviation increase in the score on the second canonical variate for set 1 when the other variables in the model are held constant.
+
+Standardized second.son canonical coefficients diagonal matrix of second.son sd's
+
+```{r}
+s2 <- diag(sqrt(diag(cov(second.son))))
+s2 %*% cc1$ycoef
+```
+
+```{r echo=FALSE}
+s2coef <- s2 %*% cc1$ycoef
+```
+
+The variable `r rownames(cc1[3:4]$ycoef)[1]`, a one standard deviation increase in reading leads to a `r abs(s2coef[1,1])` standard deviation decrease in the score on the first canonical variate for set 2 when the other variables in the model are held constant.
+
+The variable `r rownames(cc1[3:4]$ycoef)[1]`, a one standard deviation increase in reading leads to a `r abs(s2coef[1,2])` standard deviation decrease in the score on the second canonical variate for set 2 when the other variables in the model are held constant.
+
+The variable `r rownames(cc1[3:4]$ycoef)[2]`, a one standard deviation increase in reading leads to a `r abs(s2coef[2,1])` standard deviation decrease in the score on the first canonical variate for set 2 when the other variables in the model are held constant.
+
+The variable `r rownames(cc1[3:4]$ycoef)[2]`, a one standard deviation increase in reading leads to a `r abs(s2coef[2,2])` standard deviation increase in the score on the second canonical variate for set 2 when the other variables in the model are held constant.
+
+(c) Test the significance of each canonical correlation.
+
+Table 1: Tests of Canonical Dimensions
+
+```{r echo=FALSE}
+# tests of canonical dimensions
+ev <- (1 - cc1$cor^2)
+
+n <- dim(first.son)[1]
+p <- length(first.son)
+q <- length(second.son)
+k <- min(p, q)
+m <- n - 3/2 - (p + q)/2
+
+w <- rev(cumprod(rev(ev)))
+
+# initialize
+d1 <- d2 <- f <- vector("numeric", k)
+
+for (i in 1:k) {
+  s <- sqrt((p^2 * q^2 - 4)/(p^2 + q^2 - 5))
+  si <- 1/s
+  d1[i] <- p * q
+  d2[i] <- m * s - p * q/2 + 1
+  r <- (1 - w[i]^si)/w[i]^si
+  f[i] <- r * d2[i]/d1[i]
+  p <- p - 1
+  q <- q - 1
+}
+
+pv <- pf(f, d1, d2, lower.tail = FALSE)
+(dmat <- cbind(Dimension = 1:2, "Canonical Corr" = cc1$cor, WilksL = w, F = f, df1 = d1, df2 = d2, p = pv))
+```
+
+```{r}
+cca.fit = cca(first.son, second.son)
+F.test.cca(cca.fit)
+```
+
+$H_0$: there is no (linear) relationship between the y's and the x's
+all canonical correlations $r_1$, $r_2$ are non-significant.
+
+$H_1$: there is (linear) relationship between the y's and the x's
+at least one canonical correlations $r_1$, $r_2$ is significant.
+
+We reject the null hypothesis in favor of the alternative.  This implies that at least $r^2_1$ is significantly different from zero.
+
+We conclude that $r_1$ = `r cc1$cor[1]` is significant since the p-value < 0.05
+
+We conclude that $r_2$ = `r cc1$cor[2]` is not significant since the p-value > 0.05
+
+
+Tests of dimensionality for the canonical correlation analysis, as shown in Table 1, indicate that one of the two canonical dimensions are statistically significant at the 0.05 level. Dimension 1 has a canonical correlation of `r cc1$cor[1]` between the sets of variables, while for dimension 2 the canonical correlation was much lower at `r cc1$cor[2]`
+
+The first test of the canonical dimensions tests whether first dimension is significant (F = `r dmat[1, "F"] `, p-value = `r F.test.cca(cca.fit)$p.value[1]`).  First dimension is significant.
+
+The second test of the canonical dimensions tests whether second dimension is significant (F = `r dmat[2, "F"]` p-value = `r F.test.cca(cca.fit)$p.value[2]`). Second dimension is not significant.
+
+```{r echo=FALSE}
+sons.std <-sweep(sons, 2, sqrt(apply(sons,2,var)), FUN="/")
+first.son.meas <-sons.std[,1:2]
+second.son.meas <-sons.std[,3:4]
+cc(first.son.meas, second.son.meas)
+```
+
+```{r, echo=FALSE}
+colnames(first.son) <- c("First.Length", "First.Breadth") 
+colnames(second.son) <- c("Second.Length", "Second.Breadth")
+cc1 <- cc(first.son, second.son)
+
+plt.cc(cc1, var.label = TRUE, type = "v")
+plt.cc(cc1, var.label = TRUE, type = "i")
+```
+
+
+

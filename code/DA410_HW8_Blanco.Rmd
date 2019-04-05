@@ -1,0 +1,344 @@
+---
+title: 'Assignment 8: Exploratory factor analysis'
+author: "Marjorie Blanco"
+subtitle: DA 410
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file(), message=FALSE, warning=FALSE, echo=FALSE)
+library(dplyr)
+library(psych)
+library(kableExtra)
+library(utils)
+library(corpcor)
+library(GPArotation)
+library(rela)
+library(MASS)
+library(parallel)
+library(Hmisc) 
+library(stats)
+```
+
+13.7 Use the words data of Table 5.9.
+
+(a) Obtain principal component loadings for two factors.
+
+
+You may use R to solve this part (NO built-in function). Follow the 5-steps of the example introduced in the handout to obtain principal component loadings for two factors. Make sure to show your work completely.
+
+
+```{r echo=FALSE}
+# data <-read.table("Software-Files/T13_1_Perception.dat")
+# colnames(data) <- c("People", "Kind", "Intelligent", "Happy", "Likeable", "Just")
+# data <- data[,2:6]
+```
+
+
+```{r}
+data <-read.table("Software-Files/T5_9_ESSAY.DAT")
+colnames(data) <- c("student" ,"Informal words", "Informal verbs", 
+                    "Formal words", "Formal verbs")
+data <- data[,2:5]
+```
+
+## Bartlett’s Test of Sphericity
+
+```{r}
+cortest.bartlett(data)
+```
+
+Bartlett’s test was statistically significant, suggesting that the observed correlation matrix among the items is not an identity matrix.
+
+## KMO
+
+```{r}
+KMO(data)
+```
+The overall KMO for our data is 0.5.
+
+Step 1: Find correlation matrix R.
+
+
+```{r}
+n <- nrow(data)
+C <- diag(n) - matrix(1/n, n, n)
+D <- diag(apply(as.matrix(data), 2, sd))
+Xs <- C %*% as.matrix(data) %*% solve(D)
+R <- t(Xs) %*% Xs / (n-1)
+```
+
+```{r}
+rownames(R) <- colnames(R) <- colnames(data)
+```
+
+R=
+```{r echo=FALSE}
+kable(R)  %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+```{r}
+# Calculate the correlation matrix 
+res.cor <- cor(data)
+```
+
+R=
+```{r echo=FALSE}
+kable(res.cor)  %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+```{r}
+n <- nrow(data)
+C <- diag(n) - matrix(1/n, n, n)
+Xc <- C %*% as.matrix(data)
+S <- t(Xc) %*% Xc / (n-1)
+```
+
+S=
+```{r echo=FALSE}
+kable(S)  %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+```{r}
+res.cov <- cov(data)
+```
+
+S=
+```{r echo=FALSE}
+kable(res.cov)  %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+Step 2: Find the eigenvalue D and eigenvectors C of R.
+
+```{r}
+# Then use that correlation matrix to calculate eigenvalues
+res.eig <- eigen(res.cor, symmetric = FALSE)
+res.eig
+```
+
+Step 3: Find $C_1$ and $D_1$
+
+```{r}
+c.1 <- res.eig$vectors[,1:2]
+d.1 <- diag(res.eig$values[1:2])
+```
+
+$C_1$=
+
+```{r echo=FALSE}
+kable(c.1)  %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+
+$D_1$=
+
+```{r echo=FALSE}
+kable(d.1)  %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+
+
+Step 4: Find  $C_1D^{1/2}_1$
+
+```{r}
+l <- as.data.frame(c.1 %*% sqrt(d.1))
+```
+
+$C_1D^{1/2}_1$=
+```{r echo=FALSE}
+kable(l)  %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+Step 5: Obtain loadings
+
+```{r}
+l[,3] <- l[,1]^2 + l[,2]^2
+l[,4] <- 1 - l[,3]
+```
+
+```{r echo=FALSE}
+# R <- cor(data)
+# round(R, 2)
+# 
+# r.eigen <- eigen(R, symmetric=FALSE)
+# r.eigen
+```
+
+
+```{r}
+prop <- res.eig$values[1:2]/sum(res.eig$values)
+cumprop <- c(prop[1], sum(prop))
+cumulative.proportion <- 0
+prop <- c()
+cumulative <- c()
+for (i in res.eig$values) {
+  proportion <- i / dim(data)[2]
+  cumulative.proportion <- cumulative.proportion + proportion
+  prop <- append(prop, proportion)
+  cumulative <- append(cumulative, cumulative.proportion)
+}
+data.frame(cbind(prop, cumulative))
+
+
+factors <- t(t(res.eig$vectors[,1:2]) * sqrt(res.eig$values[1:2]))
+round(factors, 2)
+
+h2 <- rowSums(factors^2)
+h2
+
+u2 <- 1 - h2
+u2
+
+com <- rowSums(factors^2)^2 / rowSums(factors^4)
+com
+
+mean(com)
+```
+
+```{r echo=FALSE}
+l[,5] <- com
+```
+
+
+```{r echo=FALSE}
+rownames(l) = c("Informal words", "Informal verbs", "Formal words",   "Formal verbs")
+#kable(round(l,3), col.names = c("Principal Component Loadings f1", "Principal Component Loadings f2", "Communalities", "u")) %>%
+
+kable(round(l,3), col.names = c("PC1", "PC2", "h2", "u2", "com")) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+Variance accounted for `r res.eig$values[1:2]` `r sum(res.eig$values[1:2])`
+
+Proportion accounted for `r prop` `r sum(prop)`
+
+Cumulative proportion `r cumprop` `r sum(prop)`
+
+The first two factors account for ( `r round(res.eig$values[1], 4)` +  `r round(res.eig$values[2], 4)`)/`r sum(res.eig$values)` = `r round(sum(prop), 2)` of the total sample variance.   `r round(sum(prop)*100, 2)` % of the variance explained by two factors is very high.
+
+Informal words, Informal words, Formal words all have high factor loadings around 0.8 on the first factor (PC1).
+
+```{r echo=FALSE}
+# T <- matrix(c(0.750, 0.661, -.661, 0.750),  nrow = 2)
+# 
+# .750 .661 -.661 .750
+# as.matrix(l) %*% T
+```
+
+
+```{r echo=FALSE}
+# R <- cor(data)
+# R.smc <- (1 - 1 / diag(solve(R)))
+# diag(R) <- R.smc
+# 
+# r.eigen <- eigen(R)
+# r.eigen$values
+# 
+# tot.prop <- 0
+# for (i in r.eigen$values) {
+#   tot.prop <- tot.prop + i / sum(r.eigen$values)
+#   print(tot.prop)
+# }
+# 
+# r.lambda <- as.matrix(r.eigen$vectors[,1:2]) %*% diag(sqrt(r.eigen$values[1:2]))
+# r.lambda
+# 
+# 
+# r.h2 <- rowSums(r.lambda^2)
+# r.u2 <- 1 - r.h2
+# com <- rowSums(r.lambda^2)^2 / rowSums(r.lambda^4)
+# 
+# cor.pa <- data.frame(cbind(round(r.lambda, 2), round(r.h2, 2), round(r.u2, 3), round(com, 1)))
+# colnames(cor.pa) <- c('PA1', 'PA2', 'h2', 'u2', 'com')
+# cor.pa
+
+
+```
+
+
+```{r echo=FALSE}
+# S <- cov(data)
+# S
+# 
+# S.eigen <- eigen(S)
+# S.eigen
+# 
+# plot(S.eigen$values, xlab = 'Eigenvalue Number', ylab = 'Eigenvalue Size', main = 'Scree Graph', type = 'b', xaxt = 'n')
+# axis(1, at = seq(1, 4, by = 1))
+# 
+# C <- as.matrix(S.eigen$vectors[,1:2])
+# C
+# D <- matrix(0, dim(C)[2], dim(C)[2])
+# D
+# diag(D) <- S.eigen$values[1:2]
+# 
+# S.loadings <- C %*% sqrt(D)
+# S.loadings
+# 
+# root.pca <- prcomp(data)$rotation[,1:2] # Perform PCA on the rootstock data and take the resulting first two PCs
+# root.pca
+# 
+# S.eigen$vectors[,1:2]
+# 
+# S.h2 <- rowSums(S.loadings^2)
+# S.h2
+# 
+# colSums(S.loadings^2)
+# S.eigen$values[1:2]
+# 
+# S.u2 <- diag(S) - S.h2
+# S.u2
+# 
+# prop.loadings <- colSums(S.loadings^2)
+# 
+# prop.var <- cbind(prop.loadings[1] / sum(S.eigen$values), prop.loadings[2] / sum(S.eigen$values))
+# prop.var
+
+
+
+
+#https://www.r-bloggers.com/factor-analysis-introduction-with-the-principal-component-method-and-r/
+
+```
+
+```{r echo=FALSE}
+# pc <- principal(data, nfactors = 2, rotate = 'none', covar = FALSE)
+# pc
+# 
+# fa.diagram(pc)
+# plot(pc)
+```
+
+
+Decide how many factors to retain.
+
+For the probe data set, I recomend to retain 1 factor (PC1)
+
+### Method 1: Choose m equal to the number of factors necessary for the variance accounted for to achieve a predetermined percentage
+
+An appropriate threshold percentage should be selected prior to starting the process.  If we want to explain at least 70% of variance then we would select $PC1$ and $PC2$ 
+
+### Method 2: Choose m equal to the number of eigenvalues greater than the average eigenvalue.
+
+Eigenvalues for $PC1$ is 1. In the probe data, retaining only $PC1$ is recomended.
+
+### Method 3: Scree plot
+
+The number of points after point of inflexion. For this plot, retaining $PC1$ is recomended.
+
+```{r}
+fa <- principal(data, nfactors = 2, rotate = 'none')
+fa
+
+parallel <- fa.parallel(data, fm = 'minres', fa = 'fa')
+```

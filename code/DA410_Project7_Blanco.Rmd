@@ -1,0 +1,45 @@
+---
+title: 'Project 7: Exploratory factor analysis'
+author: "Marjorie Blanco"
+subtitle: DA 410
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file(), message=FALSE, warning=FALSE, echo=FALSE)
+library(psych)
+```
+
+13.7 Use the words data of Table 5.9.
+
+(a) Obtain principal component loadings for two factors.
+
+```{r echo=FALSE}
+data <-read.table("Software-Files/T5_9_ESSAY.DAT")
+colnames(data) <- c("student" ,"Informal words", "Informal verbs", 
+                    "Formal words", "Formal verbs")
+data <- data[,2:5]
+```
+
+```{r}
+fa <- principal(data, nfactors = 2, rotate = 'none', covar = FALSE)
+fa
+
+fa.diagram(fa)
+plot(fa, labels=names(data), cex=.7, ylim=c(-.65,.7), xlim=c(.7,.9)) # add variable names
+```
+
+Informal words, Informal words, Formal words all have high factor loadings around 0.8 on the first factor (PC1). The first two factors account for 89.13% of the total sample variance.
+
+
+```{r}
+parallel <- fa.parallel(data, fm = 'minres', fa = 'fa')
+```
+
+```{r echo=FALSE}
+#https://quantdev.ssri.psu.edu/tutorials/intro-basic-exploratory-factor-analysis
+```
+

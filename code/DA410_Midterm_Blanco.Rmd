@@ -1,0 +1,1068 @@
+---
+title: "Multivariate Analysis Midterm"
+author: "Marjorie Blanco"
+subtitle: DA 410
+always_allow_html: yes
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+library(readr)
+library(purrr)
+library(dplyr)
+library(kableExtra)
+library(MASS)
+library(gplots)
+library(klaR)
+library(car) 
+library(pastecs)
+library(mvnormtest)
+library(mvoutlier)
+library(ggplot2)
+library(class)
+library(caret)
+library(scales)
+library(PerformanceAnalytics)
+library(psych)
+library(heplots)
+options(knitr.kable.format = "pandoc")
+```
+
+Note:
+
+Round to the THIRD decimal place, unless otherwise noted in the instruction.
+
+## Problem 1 - 3
+
+Solved on paper (see pdf).
+
+Problem 1: It has been shown that C is an orthogonal matrix since CC' = C'C = I
+
+Problem 2: It was shown that AB $\ne$ BA
+
+Problem 3: 
+
+## Problem 4
+
+In the following table, we have a comparison of four reagents. The first reagent is the one presently in use and the other three are less expensive reagents that we wish to compare with the first. All four reagents are used with a blood sample from each patient.
+
+```{r echo=FALSE}
+reagents <- read_table2("Software-Files/T6_19_REAGENT.DAT", 
+                        col_names =  c("Reagent", "Subject" , 
+                                       "white.blood.count", 
+                                       "red.blood.count", 
+                                       "hemoglobin.count"), 
+                        cols(Reagent = col_integer(),
+                             Subject = col_integer(),
+                             white.blood.count = col_double(),
+                             red.blood.count = col_double(),
+                             hemoglobin.count = col_double()))
+```
+
+The three variables measured for each reagent are $y_1$ = white blood count, $y_2$ = red blood count, and $y_3$ = hemoglobin count.
+
+The data for twenty subject from each of four reagents:
+
+```{r echo=FALSE}
+kable(reagents, format = "pandoc", full_width = T) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+Compare the four reagents using all four MANOVA tests. State each hypotheses clearly, and interpret the results.
+
+```{r echo=FALSE}
+reagents %>%  dplyr::select(-Subject) %>% split(.$Reagent) %>% map(summary)
+```
+
+MANOVA analysis assumes both normality and homoscedasticity (equality of variance) of the experimental errors (residuals).
+
+- Descriptive statistics by dependent variable
+
+White blood count:
+
+```{r echo=FALSE}
+by(reagents$white.blood.count, reagents$Reagent, stat.desc, basic=FALSE)
+```
+
+Red blood count:
+
+```{r echo=FALSE}
+by(reagents$red.blood.count, reagents$Reagent, stat.desc, basic=FALSE)
+```
+
+Hemoglobin count:
+
+```{r echo=FALSE}
+by(reagents$hemoglobin.count, reagents$Reagent, stat.desc, basic=FALSE)
+```
+
+- Multivariate normality 
+
+```{r echo=FALSE}
+# select data for each group
+reagents1 <- reagents %>% dplyr::filter(Subject == 1) %>% dplyr::select(-c(Reagent, Subject))
+reagents2 <- reagents %>% dplyr::filter(Subject == 2) %>% dplyr::select(-c(Reagent, Subject))
+reagents3 <- reagents %>% dplyr::filter(Subject == 3) %>% dplyr::select(-c(Reagent, Subject))
+reagents4 <- reagents %>% dplyr::filter(Subject == 4) %>% dplyr::select(-c(Reagent, Subject))
+```
+
+```{r}
+# run normality test
+mshapiro.test(t(reagents1))   
+mshapiro.test(t(reagents2))
+mshapiro.test(t(reagents3))
+mshapiro.test(t(reagents4))
+
+aq.plot(reagents[,3:5])
+```
+
+- Mean plot by dependent variable
+
+```{r echo=FALSE}
+plotmeans(white.blood.count ~ Reagent, data = reagents,
+          xlab = "Reagent", ylab = "White blood count",
+          main="Mean Plot with 95% CI") 
+```
+
+This plot shows that the mean white blood count does not appear to be different for the four reagents.
+
+```{r echo=FALSE}
+plotmeans(red.blood.count ~ Reagent, data = reagents,
+          xlab = "Reagent", ylab = "Red blood count",
+          main="Mean Plot with 95% CI") 
+```
+
+This plot shows that the mean red blood count does not appear to be different for the four reagents.
+
+```{r echo=FALSE}
+plotmeans(hemoglobin.count ~ Reagent, data = reagents,
+          xlab = "Reagent", ylab = "Hemoglobin count",
+          main="Mean Plot with 95% CI")
+```
+
+This plot shows that the mean hemoglobin count does not appear to be different for the four reagents.
+
+```{r}
+n <- dim(reagents)[1] / length(unique(reagents$Reagent))
+total.means <- colMeans(reagents[,3:5])
+```
+
+The overall mean vector:
+
+```{r echo=FALSE}
+kable(t(round(total.means, 3)), format = "pandoc", full_width = T) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+The mean vector for each sample:
+
+```{r echo=FALSE}
+reagents.group <- split(reagents[,3:5], reagents$Reagent)
+reagents.means <- sapply(reagents.group, function(x) {
+  apply(x, 2, mean)
+}, simplify = 'data.frame')
+```
+
+```{r echo=FALSE}
+kable(round(reagents.means, 3), format = "pandoc", full_width = T) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+```{r}
+reagent1 <- reagents %>% filter(Reagent == 1)  %>% dplyr::select(-c(Reagent, Subject))
+reagent2 <- reagents %>% filter(Reagent == 2)  %>% dplyr::select(-c(Reagent, Subject))
+reagent3 <- reagents %>% filter(Reagent == 3)  %>% dplyr::select(-c(Reagent, Subject))
+reagent4 <- reagents %>% filter(Reagent == 4)  %>% dplyr::select(-c(Reagent, Subject))
+
+reagent1.bar <- colMeans(reagent1)
+reagent2.bar <- colMeans(reagent2) 
+reagent3.bar <- colMeans(reagent3) 
+reagent4.bar <- colMeans(reagent4) 
+
+reagent.all.bar <- (reagent1.bar+reagent2.bar+reagent3.bar+reagent4.bar)/4
+
+reagent1.bar.diff <- reagent1.bar - reagent.all.bar 
+reagent2.bar.diff <- reagent2.bar - reagent.all.bar 
+reagent3.bar.diff <- reagent3.bar - reagent.all.bar 
+reagent4.bar.diff <- reagent4.bar - reagent.all.bar 
+
+H <- n * unname(reagent1.bar.diff %*% t(reagent1.bar.diff) +
+                  reagent2.bar.diff %*% t(reagent2.bar.diff) +
+                  reagent3.bar.diff %*% t(reagent3.bar.diff) +
+                  reagent4.bar.diff %*% t(reagent4.bar.diff))
+```
+
+H =
+```{r echo=FALSE}
+kable(round(H, 3), format = "pandoc") %>% 
+  kable_styling(bootstrap_options = "striped")
+```
+
+```{r}
+"compute.within.matrix" <-function(data, mean) {
+  ret <- matrix(as.numeric(0), nrow=3, ncol=3)
+  for (i in 1:20) {
+    diff <- as.numeric(unname(data[i,] - mean)) 
+    ret <- ret + diff %*% t(diff)} 
+  return(ret)
+}
+E <- compute.within.matrix(reagent1, reagent1.bar) + compute.within.matrix(reagent2, reagent2.bar) +
+  compute.within.matrix(reagent3, reagent3.bar) + compute.within.matrix(reagent4, reagent4.bar)
+```
+
+E =
+```{r echo=FALSE}
+kable(round(E, 3), format = "pandoc") %>% 
+  kable_styling(bootstrap_options = "striped")
+```
+
+```{r}
+# number of groups
+k <- length(unique(reagents$Reagent))
+# number of variables (dimension)
+p <- length(reagents[,3:5])
+# degrees of freedom for hypothesis
+vh <- k - 1
+# degrees of freedom for error
+ve <- dim(reagents)[1] - k
+```
+
+The number of groups: k = `r k`
+
+The number of variables (dimension): p = `r p`
+
+The degrees of freedom for hypothesis: $v^H$ = `r vh`
+
+The degrees of freedom for error: $v^E$ = `r ve`
+
+```{r}
+# MANOVA test
+reagents.manova <- manova(cbind(reagents$white.blood.count, 
+                                reagents$red.blood.count,
+                                reagents$hemoglobin.count) ~ Reagent, 
+                          data = reagents)
+reagents.summary <- summary(reagents.manova)
+```
+
+We would then like to test if the properties (white blood, red blood and hemoglobin count) are the same across the four reagents.
+
+$H_0: \mu_1 = \mu_2 = \mu_3= \mu_4$
+
+$H_1:$ At least two $\mu's$ are unequal
+
+```{r}
+E <- reagents.summary$SS$Residuals
+H <- reagents.summary$SS$Reagent
+# Wilk’s Lambda 
+lambda <- det(E) / det(E + H)
+e1h.eigen <- eigen(solve(E) %*% H)
+Vs <- sum(e1h.eigen$values / (1 + e1h.eigen$values))
+Us <- sum(e1h.eigen$values)
+s <- min(vh, p)
+roy.stat <- e1h.eigen$values[1]
+roy.omega <- roy.stat / (1 + roy.stat)
+```
+
+### Wilks’s test
+
+```{r}
+reagents.summary <- summary(manova(cbind(reagents$white.blood.count, 
+                                         reagents$red.blood.count, 
+                                         reagents$hemoglobin.count) ~ 
+                                     reagents$Reagent), 
+                            test = "Wilks")
+reagents.summary
+```
+
+$\lambda$ =  `r round(lambda, 3)`
+
+The MANOVA model reports a Wilks test statistic of `r round(reagents.summary$stats[1,2], 3)` and a p-value  (`r round(reagents.summary$stats[1,6], 3)`) > 0.05, thus $H_0$ fails to be rejected and it is concluded there are no significant differences in the means.
+
+### Roy’s test
+
+```{r}
+reagents.summary <- summary(manova(cbind(reagents$white.blood.count, 
+                                         reagents$red.blood.count, 
+                                         reagents$hemoglobin.count) ~ 
+                                     reagents$Reagent), 
+                            test = "Roy")
+reagents.summary
+```
+
+$\Theta$ =  `r round(roy.omega, 3)`
+
+The MANOVA model reports a Roy test statistic of `r round(reagents.summary$stats[1,2], 3)` and a p-value  (`r round(reagents.summary$stats[1,6], 3)`) > 0.05, thus $H_0$ fails to be rejected and it is concluded there are no significant differences in the means.
+
+### Hotelling-Lawley’s test
+
+```{r}
+reagents.summary <- summary(manova(cbind(reagents$white.blood.count, 
+                                         reagents$red.blood.count, 
+                                         reagents$hemoglobin.count) ~ 
+                                     reagents$Reagent), 
+                            test = "Hotelling-Lawley")
+reagents.summary
+```
+
+$U^{(s)}$ = `r round(Us, 3)`
+
+The MANOVA model reports a Hotelling-Lawley test statistic of `r round(reagents.summary$stats[1,2], 3)` and a p-value  (`r round(reagents.summary$stats[1,6], 3)`) > 0.05, thus $H_0$ fails to be rejected and it is concluded there are no significant differences in the means.
+
+### Pillai’s test
+
+```{r}
+reagents.summary <- summary(manova(cbind(reagents$white.blood.count, 
+                                         reagents$red.blood.count, 
+                                         reagents$hemoglobin.count) ~ 
+                                     reagents$Reagent), 
+                            test = "Pillai")
+reagents.summary
+```
+
+$V^{(s)}$ = `r round(Vs,  3)`
+
+The MANOVA model reports a Pillai test statistic of `r round(reagents.summary$stats[1,2], 3)` and a p-value  (`r round(reagents.summary$stats[1,6], 3)`) > 0.05, thus $H_0$ fails to be rejected and it is concluded there are no significant differences in the means.
+
+## Problem 5
+
+The table below displays scores on math, English, and art tests for 5 students. Note that data from the table is represented in matrix A, where each column in the matrix shows scores on a test and each row shows scores for a student:
+
+```{r}
+A <- matrix(c(90,	60,	90,	90,	90,	30, 60,	60,	60, 60,	60,	90, 30,	30,	30), 
+            nrow = 5, ncol = 3, byrow = TRUE )
+colnames(A) <- c("Math", "English", "Art")
+```
+
+A =
+```{r echo=FALSE}
+kable(A, caption = "Math, English, and Art tests for 5 students", format = "pandoc", position = "center") %>% 
+  kable_styling(bootstrap_options = "striped")
+```
+
+```{r}
+y <- data.frame(mean = colMeans(A))
+```
+
+$\overline{y}$  =
+```{r, echo=FALSE}
+kable(t(y), caption = "Mean vector y", format = "pandoc") %>% 
+  kable_styling(bootstrap_options = "striped")
+```
+
+(a) Calculate the sample covariance matrix S.
+
+```{r}
+S <- cov(A)
+```
+
+S =
+```{r echo=FALSE}
+kable(S, caption = "Sample covariance matrix", format = "pandoc") %>% 
+  kable_styling(bootstrap_options = "striped")
+```
+
+Thus, 630 is the variance of the Math variable, 450 is the covariance between the Math and the English variables, 225 is the covariance between the Math and the Art variables, 450 is the variance of the English variable, 0 is the covariance between the English and Art variables and 900 is the variance of the Art variable.
+
+(b) Calculate the sample correlation matrix R.
+
+```{r}
+R <- cor(A)
+```
+
+R =
+```{r echo=FALSE}
+kable(R, caption = "Sample correlation matrix", format = "pandoc") %>% 
+  kable_styling(bootstrap_options = "striped")
+```
+
+```{r echo=FALSE}
+pairs.panels(A, scale=TRUE)
+```
+
+Based on the correlation matrix, we can see that Math and English score are highly correlated.  Art and Math are weakly correlated, while English and Art are not correlated.
+
+(c) Now let’s define $Z = -2y_1+ 3y_2+ y_3$, where $y_1$ denotes Math scores, $y_2$ denotes English scores, and $y_3$ denotes Art scores. Find the sample mean vector $\overline{z}$ and the sample variance $S^2_z$.
+
+```{r}
+A2 <- sweep(A, 2, c(-2, 3, 1), "*")
+
+z <- data.frame(mean = rowSums(A2))
+rownames(z) <- paste(rep(c("z"), nrow(A)), rep(1:nrow(A)), sep="")
+```
+
+z = 
+```{r echo=FALSE}
+kable(t(z), format = "pandoc")
+```
+
+```{r}
+z_bar <- sum(z) * (1/nrow(A))
+```
+
+$\overline{z}$ = `r z_bar`
+
+```{r}
+a <- c(-2, 3, 1)
+s2z<- t(a) %*% as.matrix(S) %*% a
+```
+
+$s^2_z$ = `r s2z`
+
+## Problem 6:
+
+Use the beetle data, do the following:
+
+```{r echo=FALSE}
+beetles_df <- read.table('Software-Files/T5_5_FBEETLES.DAT', 
+                         col.names = c('Measurement.Number', 
+                                       'Species', 
+                                       'transverse.groove.dist', 
+                                       'elytra.length', 
+                                       'second.antennal.joint.length', 
+                                       'third.antennal.joint.length'))
+beetles_df$Species <- as.factor(beetles_df$Species)
+train.data <- beetles_df %>% dplyr::select(-c(Species, Measurement.Number))
+label.data <- beetles_df %>% dplyr::select(Species) 
+```
+
+```{r echo=FALSE}
+kable(beetles_df, caption = "Beetles", format = "pandoc", col.names = c("Number", "Species","y1", "y2", "y3", "y4")) %>% 
+  kable_styling(bootstrap_options = "striped")
+```
+
+(a) Find the classification function and cutoff point.
+
+Let $G_1$ = Haltica oleracea and $G_2$ = Haltica carduorum
+
+```{r}
+oleracea <- beetles_df %>% dplyr::filter(Species == 1) %>% dplyr::select(-c(Species, Measurement.Number))
+carduorum <- beetles_df %>% dplyr::filter(Species == 2) %>% dplyr::select(-c(Species, Measurement.Number))
+
+oleracea <- as.matrix(oleracea)
+carduorum <- as.matrix(carduorum)
+```
+
+###  Mean vectors
+
+```{r,echo=TRUE}
+y_bar1 <- colMeans(oleracea)
+y_bar2 <- colMeans(carduorum)
+```
+
+$\overline{y_1} =$
+```{r  echo=FALSE}
+kable(t(y_bar1),  format = "pandoc", digits = 3) %>%
+  kable_styling(bootstrap_options = "striped", font_size = 0.6)
+```
+
+$\overline{y_2} =$ 
+```{r  echo=FALSE}
+kable(t(y_bar2),  format = "pandoc", digits = 3) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+### Covariance matrices
+
+```{r,echo=TRUE}
+S1 <- cov(oleracea)
+S2 <- cov(carduorum)
+```
+
+S1 =
+```{r  echo=FALSE}
+kable(S1, format = "pandoc", digits = 3) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+S2 =
+```{r echo=FALSE}
+kable(S2, format = "pandoc", digits = 3) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+### Pooled covariance matrix
+
+```{r,echo=TRUE}
+Spl <- (1/ (nrow(oleracea) + nrow(carduorum) - 2)) *
+  ((nrow(oleracea) - 1) * S1 + (nrow(carduorum) - 1) * S2)
+```
+
+Spl =
+```{r echo=FALSE}
+kable(Spl,  format = "pandoc", digits = 3) %>%
+  kable_styling(bootstrap_options = "striped")
+```        
+
+$S^{-1}_{pl}$ =
+```{r echo=FALSE}
+kable(solve(Spl), format = "pandoc", digits = 3) %>%
+  kable_styling(bootstrap_options = "striped")
+```  
+
+$a' = (y_1 - y_2 )'S_{pl}^{-1}y$
+```{r,echo=TRUE}
+a_prime <- t(y_bar1 - y_bar2) %*% solve(Spl)
+```
+
+$a' =$
+```{r echo=FALSE}
+kable(a_prime, format = "pandoc", digits = 3) %>%
+  kable_styling(bootstrap_options = "striped")
+```    
+
+```{r,echo=TRUE}
+z_bar1 <- a_prime %*% y_bar1
+```
+
+$\overline{z_1} =$
+```{r echo=FALSE}
+kable(z_bar1, format = "pandoc", digits = 3) %>%
+  kable_styling(bootstrap_options = "striped")
+``` 
+
+```{r,echo=TRUE}
+z_bar2 <- a_prime %*% y_bar2
+```
+
+$\overline{z_2} =$
+```{r echo=FALSE}
+kable(z_bar2, format = "pandoc", digits = 3) %>%
+  kable_styling(bootstrap_options = "striped")
+``` 
+
+```{r,echo=TRUE}
+z <- (z_bar1 + z_bar2) /2
+```
+
+$z =$
+```{r echo=FALSE}
+kable(z, format = "pandoc", digits = 3) %>%
+  kable_styling(bootstrap_options = "striped")
+``` 
+
+Assign y to $G_1$ if z $\ge$ `r round(z[1], 3)`
+
+Assign y to $G_2$ if z < `r round(z[1], 3)`
+
+In other words, if z is greater than `r round(z[1], 3)`, the observation is assigned to Group 1. Otherwise, it is assigned to Group 2.
+
+(b) Find the classification table using the nearest neighbor method by setting k = 3.
+
+### Nearest neighbor method with no cross-validation/scaling
+
+```{r}
+beetles_df$KNNprediction <-  knn(train = train.data, 
+                                 test = train.data, 
+                                 cl = as.matrix(label.data), 
+                                 k = 3)
+```
+
+Classification Table for the Beetle Data Using the k Nearest Neighbor Method with k = 3
+
+```{r}
+cm <- confusionMatrix(beetles_df$Species, beetles_df$KNNprediction)
+cm$table
+```
+
+The KNN model predictions classified all of group 1’s observations correctly but incorrectly assigned a group 2 observation to group 1.
+
+```{r}
+normalize <- function(x) {
+return ((x - min(x)) / (max(x) - min(x))) }
+
+trainN.data <- as.data.frame(lapply(train.data, normalize))
+beetles_df$KNNprediction.n <-  knn(train = trainN.data, 
+                                 test = trainN.data, 
+                                 cl = as.matrix(label.data), 
+                                 k = 3)
+```
+
+
+Classification Table for the Beetle Data Using the k Nearest Neighbor Method with k = 3 with Scaling/Normalization
+
+```{r}
+cm <- confusionMatrix(beetles_df$Species, beetles_df$KNNprediction.n)
+cm$table
+```
+
+The KNN model predictions classified all of group 1’s observations correctly but incorrectly assigned a group 2 observation to group 1.
+
+(c) Calculate misclassification rate.
+
+
+### Nearest neighbor method with no scaling 
+
+```{r}
+cm <- confusionMatrix(beetles_df$Species, beetles_df$KNNprediction)
+cm
+```
+
+The apparent correct classification rate = $$\frac{19 + 19}{39}  = 97.4 \% $$
+
+The apparent error rate = 1 - 0.974 = 0.026 = 2.6%
+
+### Nearest neighbor method with scaling/normalizing 
+
+```{r}
+cm <- confusionMatrix(beetles_df$Species, beetles_df$KNNprediction)
+cm
+```
+
+The apparent correct classification rate = $$\frac{19 + 19}{39}  = 97.4 \% $$
+
+The apparent error rate = 1 - 0.974 = 0.026 = 2.6%
+
+### Nearest neighbor method using cross-validation with no scaling 
+
+```{r}
+correct <- rep(0, times=nrow(beetles_df))
+for (j in 1:nrow(beetles_df))
+{
+  mypred <- knn(train = train.data[-j, ], 
+                test = train.data[j, ], 
+                cl = as.matrix(label.data)[-j], k = 3)
+  correct[j] <- (mypred == beetles_df$Species[j])
+}
+cv.missclass <- 1 - mean(correct)
+```
+
+The KNN training model correctly classified `r round(1 - cv.missclass, 3) * 100`% of observations.
+
+The KNN training model misclassification rate for KNN = 3 is `r round(cv.missclass, 3) * 100`%.
+
+### Nearest neighbor method using cross-validation with scaling/normalizing
+
+```{r}
+correct <- rep(0, times=nrow(beetles_df))
+for (j in 1:nrow(beetles_df))
+{
+  mypred <- knn(train = trainN.data[-j, ], 
+                test = trainN.data[j, ], 
+                cl = as.matrix(label.data)[-j], k = 3)
+  correct[j] <- (mypred == beetles_df$Species[j])
+}
+cv.missclass <- 1 - mean(correct)
+```
+
+The KNN training model correctly classified `r round(1 - cv.missclass, 3) * 100`% of observations.
+
+The KNN training model misclassification rate for KNN = 3 is `r round(cv.missclass, 3) * 100`%.
+
+This model has lower accuracy than the model without scaling/normalizing.
+
+## Problem 7
+
+Use the above beetle data, do the following:
+
+(a) Use LDA by setting probability of 50% and 50% to train model.
+
+```{r echo=FALSE}
+beetles.group <- split(beetles_df[,3:6], beetles_df$Species)
+beetles.means <- sapply(beetles.group, function(x) {
+  apply(x, 2, mean)
+}, simplify = 'data.frame')
+```
+
+The mean vectors:
+
+```{r echo=FALSE}
+kable(beetles.means, format = "pandoc", digits = 3) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+```{r}
+beetles_df$Measurement.Number <- NULL
+beetles.lda <- lda(Species ~ ., 
+                   prior = c(0.5,0.5),
+                   data = beetles_df[1:5])
+lda.pred <- predict(beetles.lda)$class
+```
+
+```{r echo=FALSE}
+beetles.lda
+```
+
+The first discriminant function is a linear combination of the variables: 
+
+$$-0.09327642 * transverse.groove.dist + 0.03522706 * transverse.groove.dist + second.antennal.joint.length * 0.02875538
+third.antennal.joint.length * 0.03872998$$
+
+The LDA probability of Haltica oleracea is `r round(beetles.lda$prior[[1]] * 100, 0)`% while Haltica carduorum is `r round(beetles.lda$prior[[2]] * 100, 0)`%.
+
+```{r echo=FALSE}
+lda.data <- cbind(beetles_df, predict(beetles.lda)$x, lda.pred)
+lda.data$LDAprediction <- ifelse(lda.data$LD1 < 0, 1, 2)
+lda.data$LDAprediction <- ifelse(lda.data$LD1 < 0, 1, 2)
+
+lda.data$lda.pred <- as.factor(lda.data$lda.pred)
+
+prop.lda = beetles.lda$svd^2/sum(beetles.lda$svd^2)
+
+
+ggplot() +
+  geom_point(aes(x = LD1,  y = Species, color = Species, shape = lda.pred), lda.data) +
+  geom_hline(yintercept = 0, linetype="dashed", color = "red") +
+  labs(x = paste("LD1 (", percent(prop.lda[1]), ")", sep="")) +
+  scale_colour_discrete(name  = "Species",
+                        breaks=c("1", "2"),
+                        labels=c("Haltica oleracea", "Haltica carduorum")) +
+  scale_shape_discrete(name  ="Prediction",
+                       breaks=c("1", "2"),
+                       labels=c("Haltica oleracea", "Haltica carduorum"))
+
+
+partimat(Species~., data=beetles_df[1:5], method="lda") 
+```
+
+```{r}
+cm <- confusionMatrix(beetles_df$Species, as.factor(lda.data$LDAprediction))
+cm
+```
+
+The LDA model predictions classified all of group 1’s observations correctly but incorrectly assigned a group 2 observation to group 1.
+
+(b) Predict new observation (189,245,138,164).
+
+```{r}
+new.data <-  data.frame(189,245,138,164)
+colnames(new.data) <- c("transverse.groove.dist", "elytra.length", "second.antennal.joint.length", "third.antennal.joint.length")
+plda <- predict(beetles.lda, newdata = new.data)
+plda
+```
+
+The new observation LD1 is `r round(plda$x[1], 3)` and it is predicted to be assigned to Group 1 (Haltica oleracea).
+
+(c) Calculate misclassification rate.
+
+```{r}
+correct <- rep(0, times=nrow(beetles_df))
+for (j in 1:nrow(beetles_df))
+{
+  mydis<- lda(grouping = beetles_df$Species[-j],
+              x=beetles_df[-j, 2:5],
+              prior = c(0.5, 0.5))
+  mypred <- predict(mydis, newdata = beetles_df[j, 2:5])$class
+  correct[j] <- (mypred == beetles_df$Species[j])
+}
+cv.missclass <- 1 - mean(correct)
+```
+
+The LDA training model correctly classified `r round(1 - cv.missclass, 3) * 100`% of observations.
+
+The LDA training model misclassification rate is `r round(cv.missclass, 3) * 100`%.
+
+## Problem 8
+
+The following table contains data from O’Sullivan and Mahan with measurements of blood glucose levels on three occasions for 30 women. The y’s represent fasting glucose measurements on the three occasions; the x’s are glucose measurements 1 hour after sugar intake. Find the mean vector and covariance matrix for all six variables and partition them into $\binom{\overline{y}}{\overline{x}}$, and 
+
+$$\mathbf{S} = \left[\begin{array}
+{rrr}
+S_{yy} & S_{yx} \\
+S_{xy} & S_{xx}
+\end{array}\right]
+$$
+
+```{r}
+blood.glucose <- read.table('data/data_problem8.txt')
+blood.glucose <- cbind(blood.glucose[1:30,], blood.glucose[31:60,])
+colnames(blood.glucose) <- c("y1", "y2", "y3", "x1", "x2", "x3")
+```
+
+```{r}
+kable(blood.glucose, format = "pandoc") %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+
+```{r}
+y <- data.frame(mean = colMeans(blood.glucose))
+```
+
+$\binom{\overline{y}}{\overline{x}}$ =
+```{r, echo=FALSE}
+rownames(y) <- colnames(blood.glucose)
+kable(y, digits = 3, format = "pandoc")
+```
+
+
+S =
+```{r, echo=FALSE}
+cov <- cov(blood.glucose)
+kable(cov, digits = 3, format = "pandoc")
+```
+
+$S_{yy}$ =
+```{r, echo=FALSE}
+kable(cov[1:3, 1:3], digits = 3, format = "pandoc")
+```
+
+
+$S_{yx}$ =
+```{r, echo=FALSE}
+kable(cov[1:3, 4:6], digits = 3, format = "pandoc")
+```
+
+$S_{xy}$ =
+```{r, echo=FALSE}
+kable(cov[4:6, 1:3], digits = 3, format = "pandoc")
+```
+
+$S_{xx}$ =
+```{r, echo=FALSE}
+kable(cov[4:6, 4:6], digits = 3, format = "pandoc")
+```
+
+```{r}
+Syy <- matrix(c(cov(blood.glucose$y1, blood.glucose$y1), 
+                cov(blood.glucose$y1, blood.glucose$y2), 
+                cov(blood.glucose$y1, blood.glucose$y3), 
+                cov(blood.glucose$y2, blood.glucose$y1), 
+                cov(blood.glucose$y2, blood.glucose$y2),
+                cov(blood.glucose$y2, blood.glucose$y3),
+                cov(blood.glucose$y3, blood.glucose$y1),
+                cov(blood.glucose$y3, blood.glucose$y2),
+                cov(blood.glucose$y3, blood.glucose$y3)), 
+              nrow = 3, byrow = TRUE)
+
+Sxx <- matrix(c(cov(blood.glucose$x1, blood.glucose$x1), 
+                cov(blood.glucose$x1, blood.glucose$x2),
+                cov(blood.glucose$x1, blood.glucose$x3),
+                cov(blood.glucose$x2, blood.glucose$x1), 
+                cov(blood.glucose$x2, blood.glucose$x2),
+                cov(blood.glucose$x2, blood.glucose$x3),
+                cov(blood.glucose$x3, blood.glucose$x1),
+                cov(blood.glucose$x3, blood.glucose$x2),
+                cov(blood.glucose$x3, blood.glucose$x3)), 
+              nrow = 3, byrow = TRUE)
+
+Syx <- matrix(c(cov(blood.glucose$y1, blood.glucose$x1),  
+                cov(blood.glucose$y1, blood.glucose$x2),
+                cov(blood.glucose$y1, blood.glucose$x3),
+                cov(blood.glucose$y2, blood.glucose$x1), 
+                cov(blood.glucose$y2, blood.glucose$x2),
+                cov(blood.glucose$y2, blood.glucose$x3),
+                cov(blood.glucose$y3, blood.glucose$x1),
+                cov(blood.glucose$y3, blood.glucose$x2),
+                cov(blood.glucose$y3, blood.glucose$x3)), 
+              nrow = 3, byrow = TRUE)
+
+Sxy <- t(Syx)
+
+S <- cbind(rbind(Syy, Sxy), rbind(Syx, Sxx))
+```
+
+S =
+```{r, echo=FALSE}
+kable(S, digits = 3, format = "pandoc") %>%
+  kable_styling(bootstrap_options = "striped")
+
+```
+
+## Problem 9
+
+Various aspects of economic cycles were measured for consumer goods and producer goods by Tintner. 
+
+The variables are:
+
+$y_1$ = length of cycle
+
+$y_2$ = percentage of rising prices
+
+$y_3$ = cyclical amplitude
+
+$y_4$ = rate of change
+
+The data for several items are given in the following table:
+
+```{r}
+goods <- read.table('Software-Files/T5_8_GOODS.DAT', 
+                    col.names = c('Item', 'Type', 'y1', 'y2', 'y3', 'y4'))
+```
+
+```{r echo=FALSE}
+kable(goods, caption = "Economic cycles measurements for consumer goods and producer goods", format = "pandoc") %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+```{r echo=FALSE}
+goods$Item <- NULL
+goods_df <- as.data.frame(goods)
+consumer <- goods_df %>% dplyr::filter(Type == 1) %>% dplyr::select(-Type)
+producer <- goods_df %>% dplyr::filter(Type == 2) %>% dplyr::select(-Type)
+
+consumer <- as.matrix(consumer)
+producer <- as.matrix(producer)
+```
+
+```{r}
+res <- t.test(y1 ~ Type, data = goods_df)
+res
+```
+
+The p-value is `r res$p.value`. The consumer goods and producer goods differ in their length of cycle.
+
+```{r}
+res <- t.test(y2 ~ Type, data = goods_df)
+res
+```
+
+The p-value is `r res$p.value`. The consumer goods and producer goods does not differ in their percentage of rising prices.
+
+```{r}
+res <- t.test(y3 ~ Type, data = goods_df)
+res
+```
+
+The p-value is `r res$p.value`. The consumer goods and producer goods differ in their cyclical amplitude.
+
+```{r}
+res <- t.test(y4 ~ Type, data = goods_df)
+res
+```
+
+The p-value is `r res$p.value`. The consumer goods and producer goods does not differ in their rate of change.
+
+Use Hotelling’s T^2 test to test for a difference in the mean measurements vector of the Consumers Goods and the mean vector of the Producer Goods. State each hypotheses clearly, and interpret the results.
+
+We would then like to test if the properties (four economic cycles measurements) are the same across consumer and producer goods.
+
+$H_0$: $\mu_1 = \mu_2$
+
+$H_1$: The $\mu's$ are unequal
+
+Let $G_1$ = Consumer goods and $G_2$ = Producer goods
+
+###  Mean vectors
+
+```{r,echo=TRUE}
+y_bar1 <- colMeans(consumer)
+y_bar2 <- colMeans(producer)
+```
+
+$\overline{y_1} =$
+```{r  echo=FALSE}
+kable(t(y_bar1), format = "pandoc", digits = 3) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+$\overline{y_2} =$ 
+```{r  echo=FALSE}
+kable(t(y_bar2), format = "pandoc", digits = 3) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+### Covariance matrices
+
+```{r,echo=TRUE}
+S1 <- cov(consumer)
+S2 <- cov(producer)
+```
+
+The respective sample covariances matrices for the consumer goods:
+
+S1 =
+```{r  echo=FALSE}
+kable(S1, format = "pandoc", digits = 3) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+The respective sample covariances matrices for the producer goods:
+
+S2 =
+```{r echo=FALSE}
+kable(S2, format = "pandoc", digits = 3) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+### Pooled covariance matrix
+
+```{r,echo=TRUE}
+Spl <- (1/ (nrow(consumer) + nrow(producer) - 2)) *
+  ((nrow(consumer) - 1) * S1 + (nrow(producer) - 1) * S2)
+```
+
+$S_{pl}$ =
+```{r echo=FALSE}
+kable(Spl, format = "pandoc", digits = 3) %>%
+  kable_styling(bootstrap_options = "striped")
+```  
+
+Inverse matrix of the sample pool covariance matrix of the two samples:
+
+$S^{-1}_{pl}$ =
+```{r echo=FALSE}
+kable(solve(Spl), format = "pandoc", digits = 3) %>%
+  kable_styling(bootstrap_options = "striped")
+```  
+
+Hotelling T^2, the F-statistic, and the P-value:
+
+
+```{r}
+l1 <- nrow(consumer)
+l2 <- nrow(producer)
+my.q <- ncol(producer)
+
+
+T2 <- ((l1*l2)/(l1+l2))* (t(y_bar1-y_bar2) %*% solve(Spl) %*% (y_bar1-y_bar2) )  
+T2
+
+Fstat <-((l1+l2-my.q-1)*T2)/((l1+l2-2)*my.q)
+Fstat
+
+pvalue <-1-pf(Fstat, my.q, l1+l2-my.q-1)
+pvalue
+```
+
+The null hypothesis of no group mean difference is rejected.  The two groups, consumer and producer goods, have a statistically significant joint mean difference.
+
+```{r}
+# MANOVA test
+goods.summary <- summary(manova(cbind(goods$y1, 
+                                      goods$y2,
+                                      goods$y3,
+                                      goods$y4) ~ goods$Type), test="Hotelling")
+
+goods.summary
+```
+
+The Hotelling T2 multivariate t-test replaces each variable with a vector of means ($\overline{Y_1}$, $\overline{Y_2}$, $\overline{Y_3}$ and $\overline{Y_4}$) for each group.   
+
+
+Hotelling $T^2$ =  `r round(T2, 3)`, F = `r round(Fstat, 3)`, P-value = `r round(pvalue, 3)`
+
+
+```{r}
+plotmeans(y1 ~ Type, data=goods, ylim=c(0,100), xlab="Groups", legends=c("Consumer goods","Producer goods"), main ="Length of cycle", connect=FALSE,mean.labels=TRUE, col=NULL, p=1.0)
+boxplot(y1 ~ Type, data = goods, main = "Length of cycle", horizontal = T)
+```
+
+```{r}
+plotmeans(y2 ~ Type, data=goods, ylim=c(0,55), xlab="Groups", legends=c("Consumer goods","Producer goods"), main ="Percentage of rising prices", connect=FALSE,mean.labels=TRUE, col=NULL, p=1.0)
+boxplot(y2 ~ Type, data = goods, main = "Percentage of rising prices", horizontal = T)
+```
+
+```{r}
+plotmeans(y3 ~ Type, data=goods, ylim=c(0,20), xlab="Groups", legends=c("Consumer goods","Producer goods"), main ="Cyclical amplitude", connect=FALSE,mean.labels=TRUE, col=NULL, p=1.0)
+boxplot(y3 ~ Type, data = goods, main = "Cyclical amplitude", horizontal = T)
+```
+
+```{r}
+plotmeans(y4 ~ Type, data=goods, ylim=c(0,2), xlab="Groups", legends=c("Consumer goods","Producer goods"), main ="Rate of change", connect=FALSE,mean.labels=TRUE, col=NULL, p=1.0)
+boxplot(y4 ~ Type, data = goods, main = "Rate of change", horizontal = T)
+
+```
+
+Compute Box M test of equal covariance matrices
+
+```{r}
+heplots::boxM(goods [2:5],goods$Type)
+```
+
+The Box M results indicated that the variance-covariance matrices of the two groups were equal (Chi-square = 10.565,, df = 10 p = 0.3924).
+

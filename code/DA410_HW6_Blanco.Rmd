@@ -1,0 +1,271 @@
+---
+title: 'Chapter 11: '
+author: "Marjorie Blanco"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file(), message=FALSE, warning=FALSE, echo=FALSE)
+library(readr)
+library(knitr)
+library(kableExtra)
+library(CCA)
+library(yacca)
+```
+
+Chapter 11 Page 402: #11.9 part (a)
+
+1. You may use R to solve this part (NO built-in function). To get full credit, make sure you include the following steps, with code and output:
+
+a)  the sample correlation matrix
+
+```{r , message=FALSE}
+sons <- read_table("Software-Files/T3_8_SONS.DAT", col_names = c("y1", "y2", "x1", "x2"))
+sons <- as.matrix(sons)
+kable(sons) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+```{r}
+sons.std <-sweep(sons, 2, sqrt(apply(sons,2,var)), FUN="/")
+first.son.meas <-sons.std[,1:2]
+second.son.meas <-sons.std[,3:4]
+```
+
+first.son.meas =
+```{r}
+kable(first.son.meas) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+second.son.meas =
+```{r}
+kable(second.son.meas) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+```{r}
+R11 <-cor(first.son.meas)
+R11
+
+R22 <-cor(second.son.meas)
+R22
+```
+
+```{r}
+R12 <-c(cor(first.son.meas[,1], second.son.meas[,1]), 
+        cor(first.son.meas[,1], second.son.meas[,2]),
+        cor(first.son.meas[,2], second.son.meas[,1]), 
+        cor(first.son.meas[,2], second.son.meas[,2]))
+```
+
+R12 =
+```{r}
+R12 <-matrix(R12, ncol=ncol(R22), byrow=T) # R12 has q2 columns, same as number of petal measurements
+R12
+```
+
+```{r}
+R21 <-t(R12)  # R21=transpose of R12
+```
+
+```{r}
+S <- cbind(rbind(R22, R12), rbind(R21, R11))
+```
+
+S =
+```{r, echo=FALSE}
+round(S, 7)
+```
+
+```{r}
+cor(sons)
+```
+
+b)  the characteristic equation
+
+```{r}
+# Finding the E1 and E2 matrices:
+E1 <-solve(R11) %*% R12 %*% solve(R22) %*% R21
+E2 <-solve(R22) %*% R21 %*% solve(R11) %*% R12
+eigen(E1)
+eigen(E2)
+```
+
+u1 = `r eigen(E1)$vectors[1,1]` * First Son Head Length + `r eigen(E1)$vectors[2,1]` * First Son Head Breadth
+
+v1 = `r eigen(E2)$vectors[1,1]` * Second Son Head Length + `r eigen(E2)$vectors[2,1]` * Second Son Head Breadth
+
+u2 = `r eigen(E1)$vectors[1,2]` * First Son Head Length + `r eigen(E1)$vectors[2,2]` * First Son Head Breadth
+
+v2 = `r eigen(E2)$vectors[1,2]` * Second Son Head Length + `r eigen(E2)$vectors[2,2]` * Second Son Head Breadth
+
+c) eigenvalues
+
+```{r}
+eigen(E1)$values
+eigen(E2)$values
+```
+
+(a) Find the canonical correlations between ($y_1$, $y_2$) and ($x_1$, $x_2$).
+
+```{r}
+canon.corr <-sqrt(eigen(E1)$values)
+canon.corr
+
+# Plotting the first set of canonical variables:
+u1 <-as.matrix(sons[,1:2]) %*% as.matrix(eigen(E1)$vectors[,1])
+v1 <-as.matrix(sons[,3:4]) %*% as.matrix(eigen(E2)$vectors[,1])
+plot(u1,v1)
+
+# Plotting the second set of canonical variables:
+u2 <-as.matrix(sons[,1:2]) %*% as.matrix(eigen(E1)$vectors[,2])
+v2 <-as.matrix(sons[,3:4]) %*% as.matrix(eigen(E2)$vectors[,2])
+plot(u2,v2)
+```
+
+$r_1$ = `r canon.corr[1]`
+
+$r_2$ = `r canon.corr[2]` 
+
+The first canonical variate captures the most explained variance, canonical r = `r canon.corr[1]`.  
+
+```{r}
+cca1 <- cancor(first.son.meas, second.son.meas)
+# The canonical correlations are the same as the ones we found,
+# The canonical variates are a little different because the cancor 
+# function works with the centered data rather than the original data.
+cca1
+cc(first.son.meas, second.son.meas)
+```
+
+```{r echo=FALSE, message=FALSE}
+sons <- read_table("Software-Files/T3_8_SONS.DAT", col_names = c("First.Son.Head.Length", "First.Son.Head.Breadth", "Second.Son.Head.Length", "Second.Son.Head.Breadth"))
+sons <- as.matrix(sons)
+```
+
+Display the canonical correlations
+
+```{r}
+first.son <- sons[,1:2]
+second.son <- sons[,3:4]
+cc1 <- cc(first.son, second.son)
+
+# display the canonical correlations
+cc1$cor
+```
+
+
+```{r}
+xcoef <- cc1[1:2]
+
+ycoef <- cc1[3:4]
+
+cc1[3:4]
+```
+
+The raw canonical coefficients are interpreted similar to interpreting regression coefficients.  
+
+
+For Second.Son.Head.Length, a one unit increase in Second.Son.Head.Length leads to a `r abs(ycoef$ycoef[1,1])` decrease in the first canonical variate, holding all other variables constant. 
+
+For Second.Son.Head.Breadth, a one unit increase in Second.Son.Head.Breadth leads to a `r abs(ycoef$ycoef[2,1])` increase in the first canonical variate, holding all other variables constant. 
+
+For Second.Son.Head.Length, a one unit increase in Second.Son.Head.Length leads to a `r abs(ycoef$ycoef[1,2])` decrease in the second canonical variate, holding all other variables constant. 
+
+For Second.Son.Head.Breadth, a one unit increase in Second.Son.Head.Breadth leads to a `r abs(ycoef$ycoef[2,2])` increase in the second canonical variate, holding all other variables constant. 
+
+
+Compute canonical loadings
+
+```{r}
+cc2 <- comput(first.son, second.son, cc1)
+```
+
+Display canonical loadings
+
+```{r}
+cc2[3:6]
+```
+
+
+```{r}
+# tests of canonical dimensions
+ev <- (1 - cc1$cor^2)
+
+n <- dim(first.son)[1]
+p <-dim(first.son)[2]
+q <- dim(second.son)[2]
+k <- min(p, q)
+m <- n - 3/2 - (p + q)/2
+
+w <- rev(cumprod(rev(ev)))
+
+# initialize
+d1 <- d2 <- f <- vector("numeric", k)
+
+for (i in 1:k) {
+    s <- sqrt((p^2 * q^2 - 4)/(p^2 + q^2 - 5))
+    si <- 1/s
+    d1[i] <- p * q
+    d2[i] <- m * s - p * q/2 + 1
+    r <- (1 - w[i]^si)/w[i]^si
+    f[i] <- r * d2[i]/d1[i]
+    p <- p - 1
+    q <- q - 1
+}
+
+pv <- pf(f, d1, d2, lower.tail = FALSE)
+(dmat <- cbind(WilksL = w, F = f, df1 = d1, df2 = d2, p = pv))
+```
+
+Standardized first.son canonical coefficients diagonal matrix of first.son sd's
+
+```{r}
+s1 <- diag(sqrt(diag(cov(first.son))))
+s1 %*% cc1$xcoef
+```
+
+Standardized second.son canonical coefficients diagonal matrix of second.son sd's
+
+```{r}
+s2 <- diag(sqrt(diag(cov(second.son))))
+s2 %*% cc1$ycoef
+```
+
+```{r}
+matcor(first.son, second.son)
+```
+
+```{r}
+plt.cc(cc1, type="v", var.label = TRUE)
+```
+
+
+```{r}
+options(scipen=999)	# Permits decimal values rather than scientific notation
+cca2.fit = cca(first.son, second.son)
+F.test.cca(cca2.fit)
+```
+
+
+2. Chapter 11 Page 402: #11.9 part (c)
+
+You CANNOT use R for this part.
+
+(c) Test the significance of each canonical correlation.
+
+$H_0$: there is no (linear) relationship between the y's and the x's
+all canonical correlations $r_1$, $r_2$ are non-significant.
+
+$H_1$: there is (linear) relationship between the y's and the x's
+at least one canonical correlations $r_1$, $r_2$ is significant.
+
+We reject the null hypothesis in favor of the alternative.  This implies that at least $r^2_1$ is significantly different from zero.
+
+We conclude that $r_1$ = `r canon.corr[1]` is significant since the p-value < 0.05
+
+We conclude that $r_2$ = `r canon.corr[1]` is not significant since the p-value > 0.05

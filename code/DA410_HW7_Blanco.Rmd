@@ -1,0 +1,318 @@
+---
+title: 'Assignment 7: Principal ComponentsAnalysis'
+author: "Marjorie Blanco"
+subtitle: DA 410
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file(), message=FALSE, warning=FALSE, echo=FALSE)
+library(readr)
+library(kableExtra)
+library(ggbiplot)
+library(paf)
+library( psych)
+library(qgraph)
+library(factoextra)
+
+#http://rpubs.com/nikkev/pca-factor
+```
+
+```{r message=FALSE}
+#load data
+probe <- read_table("book_data/T3_6_PROBE.DAT", 
+                    col_names = c("Subject","y1", "y2", "y3", "y4", "y5"))
+```
+
+Do a principle component analysis of the data in Table 3.6 (page 79)
+
+
+You may use R to solve this part (NO built-in function).
+
+a) Use both S and R. Show your S and R matrix, and the corresponding eigenvalues and eigenvectors of S and R to get full credits
+
+b) Show the percent of variance explained.
+
+
+```{r}
+probe <- probe[, 2:6]
+
+# apply PCA
+probe.pca <- prcomp(probe,
+                    center = TRUE,
+                    scale. = TRUE) 
+probe.pca
+```
+
+The first PC was weakly negative correlated with variable y3, y1, y4, y5 and y2.
+
+The second PC was strongly correlated with variables y5 (negative) and y1 and weakly correlated with variable y2, y3 (negative), and y4.
+
+
+```{r}
+probe.pca.summary <- summary(probe.pca)
+probe.pca.summary
+```
+
+The result contain 5 principal components (PC1-5). Each of these explains a percentage of the total variation in the dataset. PC1 explains `r round(summary(probe.pca)$importance[2,1] * 100, 1)`% of the total variance, which means that nearly two-thirds of the information in the dataset (5 variables) can be encapsulated by just that one Principal Component. PC2 explains `r round(summary(probe.pca)$importance[2,2] * 100, 1)`% of the variance. PC3 explains `r round(summary(probe.pca)$importance[2,3] * 100, 1)`% of the variance.  PC4 explains `r round(summary(probe.pca)$importance[2,4] * 100, 1)`% of the variance. PC5 explains `r round(summary(probe.pca)$importance[2,5] * 100, 1)`% of the variance.  PC1 and PC2 can explain explains `r round(summary(probe.pca)$importance[3,2] * 100, 1)`% of the variance. Based on this it, we can forget about PC3 through PC5.
+
+
+```{r}
+#Use R
+probe.scaled <- scale(probe, center = TRUE, scale = TRUE)
+
+#Correlation matrix
+pcacor <- cor(probe.scaled)
+```
+
+R =
+```{r echo=FALSE}
+kable(round(pcacor, 2)) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+Determinants 
+
+```{r}
+det(pcacor)
+```
+
+2. Calculate eigenvectors/eigenvalues
+
+```{r}
+res.eig <- eigen(pcacor)
+res.eig
+```
+
+The sum of the eigenvalues from a correlation matrix will equal the number of variables.  The sum of the eigenvalues will equal 5.  
+
+The SS loadings = `r res.eig$values[1]`, which is the eigenvalue for the single principal component.  The proportion variance = `r res.eig$values[1] / sum(res.eig$values)`.  
+
+The SS loadings = `r res.eig$values[2]`, which is the eigenvalue for the single principal component.  The proportion variance = `r res.eig$values[2] / sum(res.eig$values)`.
+
+The SS loadings = `r res.eig$values[3]`, which is the eigenvalue for the single principal component.  The proportion variance = `r res.eig$values[3] / sum(res.eig$values)`.
+
+The SS loadings = `r res.eig$values[4]`, which is the eigenvalue for the single principal component.  The proportion variance = `r res.eig$values[4] / sum(res.eig$values)`.
+
+The SS loadings = `r res.eig$values[5]`, which is the eigenvalue for the single principal component.  The proportion variance = `r res.eig$values[5] / sum(res.eig$values)`.
+
+The first principal component accounts for the most variable variance (`r res.eig$values[1]` / `r sum(res.eig$values)` = `r round(res.eig$values[1] / sum(res.eig$values) * 100, 1)`%) with the remaining components in lesser and lesser amounts.  This leaves `r 100 - round(res.eig$values[1] / sum(res.eig$values) * 100, 1)`% unexplained variance.  This could be due to another principal component or residual error variance.
+
+Only PC1 contains SS loadings > 1 (Kaiser’s criterion).
+
+3. Calculate Propotion
+
+```{r}
+res.eig$values/(sum(res.eig$values))
+```
+
+
+```{r}
+# Covariance matrix
+pcacov <- cov(probe.scaled)
+```
+
+S =
+```{r echo=FALSE}
+kable(round(pcacov, 2)) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+The total variance is `r sum(pcacov)`.
+
+Determinants 
+
+```{r}
+det(pcacov)
+```
+
+2. Calculate eigenvectors/eigenvalues
+
+```{r}
+res.eig1 <- eigen(pcacov)
+res.eig1
+```
+
+The first two principal components are:
+
+$Z_l$ = `r res.eig$vectors[1,1]` $y_1$ + `r res.eig$vectors[2,1]` $y_2$ + `r res.eig$vectors[3,1]` $y_3$ + `r res.eig$vectors[4,1]` $y_4$ + `r res.eig$vectors[5,1]` $y_5$
+
+$Z_2$ = `r res.eig$vectors[1,2]` $y_1$ + `r res.eig$vectors[2,2]` $y_2$ + `r res.eig$vectors[3,2]` $y_3$ + `r res.eig$vectors[4,2]` $y_4$ + `r res.eig$vectors[5,2]` $y_5$
+
+There are 5 components with descending eigenvalues (`r res.eig1$values`).  The sum of these eigenvalues is equal to the sum of the variable variances in the variance-covariance matrix (S).   The sum of the eigenvalues for the five principal components is `r sum(res.eig$values)`, which is referred to as the trace of a matrix.  The sum of the variable variances indicates the total amount of variance that is available to be partitioned across the 5 principal components.   
+
+
+3. Calculate Propotion
+
+```{r}
+res.eig$values/(sum(res.eig$values))
+```
+
+
+c) Decide how many components to retain. Show your reason.
+
+For the probe data set, I recomend to retain 2 components 
+
+### Method 1: % of variance
+
+An appropriate threshold percentage should be selected prior to starting the process.  If we want to explain at least 70% of variance then we would select PC1 and PC2.
+
+### Method 2: Kaiser’s criterion
+
+Components with SS loadings > 1. In the probe data, retaining only PC1 is recomended. The SS loading for PC2 is < 1.  Retaining PC2 is not recomended.
+
+### Method 3: Scree plot
+
+The number of points after point of inflexion. For this plot, retaining PC1 and PC2 is recomended.
+
+```{r}
+fviz_eig(probe.pca, addlabels = TRUE, ylim = c(0, 80))
+```
+
+The scree plot suggest to keep 2 principal components.
+
+### Method 4: Significance of the "larger" components
+
+Test $H_{ok}$: $\gamma_{p-k+1}$ = ... = $\gamma_p$ using a likelihood ratio approach.  Reject $H_0$ if $u \ge \chi^2_{\alpha,v}$
+
+```{r echo=FALSE}
+# 
+# football <- read_table("book_data/T8_3_FOOTBALL.DAT", 
+#                     col_names = c("group","WDIM", "CIRCUM", "FBEYE", "EYEHD", "EARHD", "JAW"))
+# 
+# football <- football %>% dplyr::filter(group != 1) %>% dplyr::select(-group)
+# cov(football)
+# 
+# football.pca <- prcomp(football)
+# football.pca
+# 
+
+
+
+#  eig_values<- c(3.323, 1.374, .476, .325, .157, .08)
+#  p <- 6
+#  n <- nrow(football)
+# # 
+#  df <- u <- x <- vector("numeric", p)
+# 
+# for (k in 6:2) {
+#   i <- p - k + 1
+#   average_eigenvalue <- sum(eig_values[i:p]) / k
+# 
+#   df[i] <- v <- ((k-1) * (k+2))/2
+#   u[i] <- (n - ((2 * p + 11) / 6)) * (k * log(average_eigenvalue) -  sum(log(eig_values[i:p])))
+#   x[i] <- qchisq(.95, df=v)
+# 
+# }
+
+
+p <- ncol(probe)
+n <- nrow(probe)
+df <- u <- x <- vector("numeric", p)
+
+for (k in p:2) {
+  i <- p - k + 1
+  df[i] <- v <- ((k-1) * (k+2))/2
+  
+  average_eigenvalue <- sum(res.eig$values[i:p]) / k
+  
+  u[i] <- (n - ((2 * p + 11) / 6)) * (k * log(average_eigenvalue) -  sum(log(res.eig$values[i:p])))  
+  x[i] <- qchisq(.95, df=v)
+}
+(dmat <- cbind(Eigenvalue = res.eig$values, k = p:1, u = u, df = df, "Crit Value" = x))
+```
+
+$H_{02}$: $\gamma_{p-1}$ = $\gamma_{p}$   $\gamma_4$ = $\gamma_5$ Reject null hypothesis since $u \ge \chi^2_{\alpha,v}$
+
+$H_{03}$: $\gamma_{p-2}$ = $\gamma_{p-1}$   $\gamma_3$ = $\gamma_2$ Fail to reject null hypothesis since $u < \chi^2_{\alpha,v}$
+
+The tests indicate that only the last four (population) eigenvalues are equal and we should retain PC1
+
+Method 1, 2, and 4 recomend that only PC1 is retained.  I would only include PC2 if the minimum explained variance % is selected to be at least 80%. Selecting PC3 should be avoided as it explain 92% and this could indicate possible overfitting.  None of the methods recomended PC3-PC5 to be retained. 
+
+```{r include=FALSE}
+ggbiplot(probe.pca, obs.scale = 1, var.scale = 1, 
+         ellipse = TRUE, 
+         circle = TRUE) +
+  scale_color_discrete(name = '') +
+  theme(legend.direction = 'horizontal', 
+        legend.position = 'top')
+```
+
+
+```{r echo=FALSE}
+fviz_pca_var(probe.pca,
+             col.var = "contrib", # Color by contributions to the PC
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE     # Avoid text overlapping
+)
+```
+
+```{r}
+fviz_pca_ind(probe.pca,
+             col.ind = "cos2", # Color by the quality of representation
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE     # Avoid text overlapping
+             )
+```
+
+Individuals with a similar profile are grouped together.
+
+```{r echo=FALSE}
+pcmodel = principal(pcacor, nfactors=5, rotate="none", scores = TRUE)   # 5 components 
+pcmodel
+summary(pcmodel)
+
+#http://geog.uoregon.edu/bartlein/courses/geog490/week09-PCA.html
+#qg_pca <- qgraph(pcmodel) #, layout="spring", posCol="darkgreen", negCol="darkmagenta", arrows=FALSE, edge.width=2, add=FALSE)
+#qgraph(qg_pca_rot, layout="spring", posCol="darkgreen", negCol="darkmagenta", arrows=FALSE, edge.width=2)
+
+alpha(pcacor)
+fa.diagram(pcmodel)
+```
+
+A component will summarize the five variable relations and yield `r round(res.eig$values[1] / sum(res.eig$values) * 100, 1)`% of the variable variance.  The principal component equation to generate the scores is computed using the first set of weights.
+
+First two principal components for the probe data
+
+```{r warning=FALSE}
+plot(as.matrix(probe.scaled) %*% res.eig$vectors[,1:2], xlab = "z1", ylab = "z2")
+fa.parallel(probe.scaled, n.obs = nrow(probe.scaled), fm = "pa", fa = "pc")
+```
+
+From this plot, we can see that the first component has the largest eigen value.
+
+## Check assumptions
+
+The KMO test
+
+```{r echo=FALSE}
+paf.pca = rela::paf(as.matrix(probe.scaled), eigcrit=1, convcrit=.001)
+kmo <- summary(paf.pca)
+kmo
+```
+
+The KMO test is close to 1 (KMO = `r kmo$KMO`), so we would conclude that n = `r nrow(probe)` with 5 variables is an adequate sample size.   Bartlett = `r kmo$Bartlett`), but requires another function to test for significance.
+
+Test significance of the Bartlett test using correlation matrix
+
+```{r message=FALSE, echo=FALSE}
+bartlett <- cortest.bartlett(probe.scaled, n = 11)
+bartlett
+```
+
+The Bartlett chi-square = `r bartlett$chisq`, df = `r bartlett$df`, p = `r bartlett$p.value` is significant indicating correlations in matrix are significant.
+
+```{r echo=FALSE}
+det(pcacor)
+```
+
+The determinant is positive. The three assumptions for conducting a principal components analysis have been met.
+
+```{r echo=FALSE}
+# pcaCOV <- princomp(x=probe)
+# pcaCOV
+```
+

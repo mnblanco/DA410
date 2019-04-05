@@ -1,0 +1,74 @@
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file(), message=FALSE, warning=FALSE, echo=FALSE)
+library(readr)
+library(knitr)
+library(kableExtra)
+library(CCA)
+
+```
+
+```{r}
+sons <- read_table("Software-Files/T3_8_SONS.DAT", col_names = c("y1", "y2", "x1", "x2"),
+                   cols(
+  y1 = col_integer(),
+  y2 = col_integer(),
+  x1 = col_integer(),
+  x2 = col_integer()))
+  
+sons <- as.matrix(sons)
+
+sons.std <-sweep(sons[,-5], 2, sqrt(apply(sons,2,var)), FUN="/")
+first.meas <-sons.std[,1:2]
+second.meas <-sons.std[,3:4]
+```
+
+
+```{r}
+R11 <-cor(first.meas)
+R22 <-cor(second.meas)
+R12 <-c(cor(first.meas[,1], second.meas[,1]), cor(first.meas[,1], second.meas[,2]),cor(first.meas[,2], second.meas[,1]), cor(first.meas[,2], second.meas[,2]))
+R12 <-matrix(R12, ncol=ncol(R22), byrow=T) # R12 has q2 columns, same as number of second measurements
+R21 <-t(R12)  # R21=transpose of R12
+# Finding the E1 and E2 matrices:
+E1 <-solve(R11) %*% R12 %*% solve(R22) %*% R21
+E2 <-solve(R22) %*% R21 %*% solve(R11) %*% R12
+eigen(E1)
+eigen(E2)
+canon.corr <-sqrt(eigen(E1)$values)
+canon.corr
+
+# u1 = 0.92*first.Length -0.39*first.Width
+# v1 = 0.94*second.Length -0.33*second.Width
+# u2 = 0.46*first.Length +0.89*first.Width
+# v2 =-0.68*second.Length -0.73*second.Width
+
+# Plotting the first set of canonical variables:
+
+u1 <-as.matrix(sons.std[,1:2]) %*% as.matrix(eigen(E1)$vectors[,1])
+
+v1 <-as.matrix(sons.std[,3:4]) %*% as.matrix(eigen(E2)$vectors[,1])
+
+plot(u1,v1)
+cor(u1,v1)
+# Plotting the second set of canonical variables:
+u2 <-as.matrix(sons.std[,1:2]) %*% as.matrix(eigen(E1)$vectors[,2])
+v2 <-as.matrix(sons.std[,3:4]) %*% as.matrix(eigen(E2)$vectors[,2])
+plot(u2,v2)
+cor(u2,v2)
+```
+
+
+```{r}
+cca1 <- cancor(first.meas, second.meas)
+# The canonical correlations are the same as the ones we found,
+# The canonical variates are a little different because the cancor 
+# function works with the centered data rather than the original data.
+cca1
+```
+```{r}
+#install.packages("CCA")
+library(CCA)
+cc(first.meas, second.meas)
+```
