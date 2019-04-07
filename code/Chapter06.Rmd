@@ -1,0 +1,176 @@
+---
+title: "Chapter 6"
+author: "Marjorie Blanco"
+date: "2/8/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+library(readr)
+library(kableExtra)
+library(gplots)
+library(matlib)
+library(stats)
+library(sjPlot)
+library(sjmisc)
+library(ggplot2)
+library(dplyr)
+theme_set(theme_sjplot())
+
+```
+
+```{r echo=FALSE}
+root <- read_table2("Software-Files/T6_2_ROOT.DAT", 
+                    col_names = c("Rootstock", "y1", "y2", "y3", "y4"))
+root$Rootstock <- as.factor(root$Rootstock)
+```
+
+```{r echo=FALSE}
+kable(root) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+```{r echo=FALSE}
+n <- dim(root)[1] / length(unique(root$Rootstock))
+total.means <- colMeans(root[,2:5])
+```
+
+```{r echo=FALSE}
+root.group <- split(root[,2:5], root$Rootstock)
+root.means <- sapply(root.group, function(x) {
+  apply(x, 2, mean)
+}, simplify = 'data.frame')
+```
+
+The overall mean vector:
+
+```{r echo=FALSE}
+kable(total.means) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+The mean vectors represent 3 points in four-dementional space.  The three mean vectors:
+
+```{r echo=FALSE}
+kable(root.means) %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+```{r echo=FALSE}
+H <- matrix(data = 0, nrow = 4, ncol = 4)
+for (i in 1:dim(H)[1]) {
+  for (j in 1:i) {
+    H[i,j] <- n * sum((root.means[i,] - total.means[i]) * (root.means[j,] - total.means[j]))
+    H[j,i] <- n * sum((root.means[j,] - total.means[j]) * (root.means[i,] - total.means[i]))
+  }
+}
+```
+
+H = 
+```{r echo=FALSE}
+kable(H) %>% 
+  kable_styling(bootstrap_options = "striped")
+```
+
+```{r echo=FALSE}
+E <- matrix(data = 0, nrow = 4, ncol = 4)
+for (i in 1:dim(E)[1]) {
+  for (j in 1:i) {
+    b <- c() 
+    for (k in root.group) {
+      k <- as.matrix(k)
+      a <- sum((k[,i] - mean(k[,i])) * (k[,j] - mean(k[,j])))
+      b <- append(b, a)
+    }
+    E[i,j] <- sum(b)
+    E[j,i] <- sum(b)
+  }
+}
+```
+
+E = 
+```{r echo=FALSE}
+kable(E) %>% 
+  kable_styling(bootstrap_options = "striped")
+```
+
+```{r echo=FALSE}
+k <- length(unique(root$Rootstock))
+p <- length(root[,2:5])
+vh <- k - 1
+ve <- k * (nrow(root) / k  - 1) #dim(root)[1] - k
+
+t <- sqrt((p^2 * vh^2 - 4) / (p^2 + vh^2 -5))
+
+df1 <- p * vh
+
+df2 <- (ve + vh - .5 * (p + vh + 1)) * t - .5 * (p * vh - 2)
+
+f <- (1 - (det(E) / det(E + H))^(1/t)) / (det(E) / det(E + H))^(1/t) * df2 / df1
+```
+
+k = `r k`
+
+p = `r p`
+
+$_vH$ = `r vh`
+
+$_vE$ = `r ve`
+
+t = `r t`
+
+$df_1$ = `r df1`
+
+$df_2$  = `r df2`
+
+F = `r f`
+
+
+```{r echo=FALSE}
+# Wilk’s Lambda 
+lambda <- det(E) / det(E + H)
+e1h.eigen <- eigen(solve(E) %*% H)
+Vs <- sum(e1h.eigen$values / (1 + e1h.eigen$values))
+Us <- sum(e1h.eigen$values)
+s <- min(vh, p)
+roy.stat <- e1h.eigen$values[1]
+roy.omega <- roy.stat / (1 + roy.stat)
+```
+
+```{r}
+summary(manova(cbind(root$y1, root$y2, 
+                     root$y3, root$y4) ~ root$Rootstock), test = "Wilks")
+```
+
+$\lambda$ =  `r round(lambda, 3)`
+
+The Wilks’s test rejects the hypothesis $H_0$ that the mean vector for the three cooking methods are equal.
+
+```{r}
+summary(manova(cbind(root$y1, root$y2, 
+                     root$y3, root$y4) ~ root$Rootstock), test = "Roy")
+```
+
+$\Theta$ =  `r round(roy.omega, 3)`
+
+The Roy’s test also rejects the hypothesis $H_0$ that the mean vector for the three cooking methods are equal.
+
+```{r}
+summary(manova(cbind(root$y1, root$y2, 
+                     root$y3, root$y4) ~ root$Rootstock), test = "Hotelling-Lawley")
+```
+
+$U^{(s)}$ = `r round(Us, 3)`
+
+The Hotelling-Lawley’s test also rejects the hypothesis $H_0$ that the mean vector for the three cooking methods are equal.
+
+```{r}
+summary(manova(cbind(root$y1, root$y2, 
+                     root$y3, root$y4) ~ root$Rootstock), test = "Pillai")
+```
+
+$V^{(s)}$ = `r round(Vs,  3)`
+
+The Pillai’s test also rejects the hypothesis $H_0$ that the mean vector for the three cooking methods are equal.
+
